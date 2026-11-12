@@ -1,0 +1,633 @@
+"use client";
+
+import { useEffect, useRef, useCallback } from "react";
+import {
+  Play,
+  Pause,
+  RotateCcw,
+  SkipBack,
+  SkipForward,
+  ChevronLeft,
+  ChevronRight,
+  Gauge,
+  Wind,
+  Wrench,
+  FastForward,
+  Footprints,
+  Square,
+  Settings2,
+  CircleDot,
+  FlaskConical,
+  Lock,
+  OctagonX,
+  PauseCircle,
+  Zap,
+  Cpu,
+} from "lucide-react";
+import { useSimStore, selectProgress, type MachineMode } from "@/lib/cnc/store";
+import { MACHINE_CATALOG, type MachineType } from "@/lib/cnc/machines";
+import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
+
+function fmtTime(sec: number) {
+  if (!isFinite(sec) || sec < 0) sec = 0;
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  const cs = Math.floor((sec * 10) % 10);
+  return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}.${cs}`;
+}
+
+function fmt(n: number, digits = 2) {
+  if (!isFinite(n)) n = 0;
+  return n.toFixed(digits);
+}
+
+// ---------- DRO readout ----------
+function DRO() {
+  const pos = useSimStore((s) => s.position);
+  const isCutting = useSimStore((s) => s.isCutting);
+  const axes = [
+    { label: "X", v: pos.x, color: "#34d399" },
+    { label: "Y", v: pos.y, color: "#22d3ee" },
+    { label: "Z", v: pos.z, color: "#4ade80" },
+  ];
+  return (
+    <div className="flex flex-col gap-1.5 w-full">
+      {axes.map((a) => (
+        <div
+          key={a.label}
+          className="relative flex min-w-[92px] flex-col rounded-md border border-white/10 bg-black/60 px-2.5 py-1.5 shadow-inner"
+        >
+          <div className="flex items-center justify-between">
+            <span
+              className="text-[10px] font-bold tracking-widest"
+              style={{ color: a.color }}
+            >
+              {a.label}
+            </span>
+            <span className="text-[8px] uppercase tracking-wider text-slate-500">
+              mm
+            </span>
+          </div>
+          <span
+            className="font-mono text-lg font-semibold tabular-nums leading-tight"
+            style={{ color: a.color, textShadow: `0 0 8px ${a.color}55` }}
+          >
+            {fmt(a.v, 3)}
+          </span>
+          {isCutting && a.label === "Z" && (
+            <span className="absolute right-1 top-1 h-1.5 w-1.5 animate-pulse rounded-full bg-rose-500" />
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ---------- Status lamps ----------
+function StatusLamp({
+  icon: Icon,
+  label,
+  value,
+  active,
+  color,
+}: {
+  icon: React.ElementType;
+  label: string;
+  value: string;
+  active: boolean;
+  color: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "flex items-center gap-2 rounded-md border px-2.5 py-1.5 transition-colors",
+        active
+          ? "border-white/15 bg-white/5"
+          : "border-white/5 bg-black/40 opacity-60",
+      )}
+    >
+      <Icon
+        className="h-4 w-4 shrink-0"
+        style={{ color: active ? color : "#64748b" }}
+      />
+      <div className="flex flex-col leading-tight">
+        <span className="text-[8px] uppercase tracking-wider text-slate-500">
+          {label}
+        </span>
+        <span
+          className="font-mono text-xs font-semibold tabular-nums"
+          style={{ color: active ? color : "#94a3b8" }}
+        >
+          {value}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function StatusRow() {
+  const spindleRpm = useSimStore((s) => s.spindleRpm);
+  const spindleOn = useSimStore((s) => s.spindleOn);
+  const spindleDir = useSimStore((s) => s.spindleDir);
+  const spindleOverride = useSimStore((s) => s.spindleOverride);
+  const feed = useSimStore((s) => s.feed);
+  const isCutting = useSimStore((s) => s.isCutting);
+  const tool = useSimStore((s) => s.tool);
+  const coolant = useSimStore((s) => s.coolant);
+
+  const rpmDisp = Math.round((spindleRpm * spindleOverride) / 100);
+
+  return (
+    <div className="grid grid-cols-2 gap-1.5">
+      <StatusLamp
+        icon={spindleDir >= 0 ? CircleDot : RotateCcw}
+        label="主轴"
+        value={spindleOn ? `${rpmDisp} rpm` : "关闭"}
+        active={spindleOn}
+        color="#f59e0b"
+      />
+      <StatusLamp
+        icon={Gauge}
+        label="进给"
+        value={isCutting ? `${fmt(feed, 0)} mm/min` : "—"}
+        active={isCutting}
+        color="#22d3ee"
+      />
+      <StatusLamp
+        icon={Wrench}
+        label="刀具"
+        value={`T${tool || 0}`}
+        active={tool > 0}
+        color="#a78bfa"
+      />
+      <StatusLamp
+        icon={Wind}
+        label="冷却液"
+        value={
+          coolant === "off"
+            ? "关闭"
+            : coolant === "flood"
+              ? "切削液"
+              : coolant === "mist"
+                ? "雾冷"
+                : coolant === "air"
+                  ? "气冷"
+                  : "关闭"
+        }
+        active={coolant !== "off"}
+        color="#38bdf8"
+      />
+    </div>
+  );
+}
+
+// ---------- Transport button ----------
+function TButton({
+  onClick,
+  children,
+  tooltip,
+  active,
+  variant = "ghost",
+  size = "icon",
+  className,
+}: {
+  onClick: () => void;
+  children: React.ReactNode;
+  tooltip: string;
+  active?: boolean;
+  variant?: "ghost" | "default" | "outline";
+  size?: "icon" | "sm" | "lg";
+  className?: string;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          onClick={onClick}
+          variant={variant}
+          size={size}
+          className={cn(
+            "h-9 w-9 rounded-full border border-white/10 bg-white/5 text-slate-200 hover:bg-white/10 hover:text-white",
+            active && "border-cyan-400/50 bg-cyan-500/20 text-cyan-200",
+            className,
+          )}
+        >
+          {children}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="text-xs">
+        {tooltip}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+// ---------- Override knob (slider-based) ----------
+function OverrideKnob({
+  label,
+  value,
+  onChange,
+  min,
+  max,
+  color,
+  unit = "%",
+}: {
+  label: string;
+  value: number;
+  onChange: (v: number) => void;
+  min: number;
+  max: number;
+  color: string;
+  unit?: string;
+}) {
+  return (
+    <div className="flex w-full flex-col gap-0.5">
+      <div className="flex items-center justify-between">
+        <span className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">
+          {label}
+        </span>
+        <span
+          className="font-mono text-[10px] font-bold tabular-nums"
+          style={{ color }}
+        >
+          {value}
+          {unit}
+        </span>
+      </div>
+      <Slider
+        value={[value]}
+        min={min}
+        max={max}
+        step={5}
+        onValueChange={(v) => onChange(v[0])}
+        className="py-0.5"
+      />
+    </div>
+  );
+}
+
+// ---------- Machine mode selector ----------
+function ModeSelect({
+  mode,
+  onChange,
+}: {
+  mode: MachineMode;
+  onChange: (m: MachineMode) => void;
+}) {
+  const modes: { id: MachineMode; label: string; icon: React.ElementType }[] = [
+    { id: "run", label: "运行", icon: Play },
+    { id: "dry_run", label: "干运行", icon: FlaskConical },
+    { id: "machine_lock", label: "锁定", icon: Lock },
+  ];
+  return (
+    <div className="flex items-center gap-0.5 rounded-md border border-white/10 bg-black/50 p-0.5">
+      {modes.map((m) => {
+        const active = mode === m.id;
+        return (
+          <Tooltip key={m.id}>
+            <TooltipTrigger asChild>
+              <button
+                onClick={() => onChange(m.id)}
+                className={cn(
+                  "flex h-7 items-center gap-1 rounded px-2 text-[10px] font-semibold uppercase tracking-wider transition-colors",
+                  active
+                    ? m.id === "run"
+                      ? "bg-emerald-500/20 text-emerald-300"
+                      : m.id === "dry_run"
+                        ? "bg-amber-500/20 text-amber-300"
+                        : "bg-rose-500/20 text-rose-300"
+                    : "text-slate-500 hover:text-slate-300",
+                )}
+              >
+                <m.icon className="h-3 w-3" />
+                {m.label}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="text-xs">
+              {m.id === "run"
+                ? "运行模式 — 完整切削仿真"
+                : m.id === "dry_run"
+                  ? "干运行 — 刀具路径运行但不切削材料"
+                  : "机床锁定 — 不切削，仅预览刀具路径"}
+            </TooltipContent>
+          </Tooltip>
+        );
+      })}
+    </div>
+  );
+}
+
+export default function ControlBar() {
+  const playing = useSimStore((s) => s.playing);
+  const toggle = useSimStore((s) => s.toggle);
+  const reset = useSimStore((s) => s.reset);
+  const stepForward = useSimStore((s) => s.stepForward);
+  const stepBackward = useSimStore((s) => s.stepBackward);
+  const seek = useSimStore((s) => s.seek);
+  const speed = useSimStore((s) => s.speed);
+  const setSpeed = useSimStore((s) => s.setSpeed);
+  const feedOverride = useSimStore((s) => s.feedOverride);
+  const rapidOverride = useSimStore((s) => s.rapidOverride);
+  const spindleOverride = useSimStore((s) => s.spindleOverride);
+  const setFeedOverride = useSimStore((s) => s.setFeedOverride);
+  const setRapidOverride = useSimStore((s) => s.setRapidOverride);
+  const setSpindleOverride = useSimStore((s) => s.setSpindleOverride);
+  const singleBlock = useSimStore((s) => s.singleBlock);
+  const toggleSingleBlock = useSimStore((s) => s.toggleSingleBlock);
+  const optionalStop = useSimStore((s) => s.optionalStop);
+  const toggleOptionalStop = useSimStore((s) => s.toggleOptionalStop);
+  const blockSkip = useSimStore((s) => s.blockSkip);
+  const toggleBlockSkip = useSimStore((s) => s.toggleBlockSkip);
+  const machineMode = useSimStore((s) => s.machineMode);
+  const setMachineMode = useSimStore((s) => s.setMachineMode);
+  const currentMoveIndex = useSimStore((s) => s.currentMoveIndex);
+  const cycleTimeSec = useSimStore((s) => s.cycleTimeSec);
+  const elapsedTimeSec = useSimStore((s) => s.elapsedTimeSec);
+  const parseResult = useSimStore((s) => s.parseResult);
+  const tick = useSimStore((s) => s.tick);
+  const progress = useSimStore(selectProgress);
+  const totalMoves = parseResult?.moves.length ?? 0;
+
+  // ---- rAF ticker ----
+  const lastRef = useRef<number | null>(null);
+  useEffect(() => {
+    let raf = 0;
+    const loop = (t: number) => {
+      if (lastRef.current == null) lastRef.current = t;
+      const dt = Math.min(0.05, (t - lastRef.current) / 1000); // clamp dt
+      lastRef.current = t;
+      if (dt > 0) tick(dt);
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
+  }, [tick]);
+
+  // ---- keyboard shortcuts ----
+  const onKey = useCallback(
+    (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.tagName === "TEXTAREA" || target.tagName === "INPUT") return;
+      if (e.code === "Space") {
+        e.preventDefault();
+        toggle();
+      } else if (e.code === "ArrowRight") {
+        e.preventDefault();
+        stepForward();
+      } else if (e.code === "ArrowLeft") {
+        e.preventDefault();
+        stepBackward();
+      } else if (e.code === "KeyR") {
+        e.preventDefault();
+        reset();
+      }
+    },
+    [toggle, stepForward, stepBackward, reset],
+  );
+  useEffect(() => {
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onKey]);
+
+  const speedPresets = [0.25, 0.5, 1, 2, 5, 10];
+
+  return (
+    <TooltipProvider delayDuration={250}>
+      <div className="flex h-full flex-col gap-4 p-4">
+        {/* DRO */}
+        <DRO />
+
+        <div className="h-px w-full bg-white/10 shrink-0" />
+
+        {/* Status */}
+        <StatusRow />
+
+        <div className="h-px w-full bg-white/10 shrink-0" />
+
+        {/* Timeline & Scrubber */}
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between text-[9px] uppercase tracking-wider text-slate-500">
+            <span>时间轴</span>
+            <span className="font-mono tabular-nums text-slate-400">
+              {(progress * 100).toFixed(1)}%
+            </span>
+          </div>
+          <Slider
+            value={[Math.round(progress * 1000)]}
+            min={0}
+            max={1000}
+            step={1}
+            onValueChange={(v) => seek(v[0] / 1000)}
+            className="py-1"
+          />
+          <div className="flex items-center justify-between font-mono text-[9px] tabular-nums text-slate-500">
+            <span>{fmtTime(elapsedTimeSec)}</span>
+            <span>-{fmtTime(Math.max(0, cycleTimeSec - elapsedTimeSec))}</span>
+          </div>
+        </div>
+
+        <div className="h-px w-full bg-white/10 shrink-0" />
+        
+        {/* Machine Selector & Modes */}
+        <div className="flex flex-col gap-2">
+          {/* Machine Architecture Dropdown */}
+          <div className="flex items-center justify-between gap-1.5 rounded-md border border-white/10 bg-black/60 px-2 py-1">
+            <div className="flex items-center gap-1 text-[10px] font-semibold uppercase text-cyan-400">
+              <Cpu className="h-3.5 w-3.5" />
+              机床
+            </div>
+            <select
+              value={useSimStore.getState().machineId}
+              onChange={(e) => useSimStore.getState().setMachineId(e.target.value as MachineType)}
+              className="rounded bg-white/5 font-mono text-[10px] font-semibold text-slate-200 px-1 py-0.5 outline-none border border-white/10 cursor-pointer"
+            >
+              {MACHINE_CATALOG.map((m) => (
+                <option key={m.id} value={m.id} className="bg-[#12161f] text-slate-200">
+                  {m.shortName}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex items-center justify-between gap-1.5">
+            <TButton onClick={toggleOptionalStop} tooltip="选择停止 (M01)" active={optionalStop}>
+              <PauseCircle className="h-4 w-4" />
+            </TButton>
+            <TButton onClick={toggleBlockSkip} tooltip="跳过程序段 (/)" active={blockSkip}>
+              <OctagonX className="h-4 w-4" />
+            </TButton>
+            <div className="ml-auto">
+              <ModeSelect mode={machineMode} onChange={setMachineMode} />
+            </div>
+          </div>
+        </div>
+
+        {/* Transport */}
+        <div className="flex items-center justify-center gap-2 py-2">
+          <TButton onClick={stepBackward} tooltip="单步后退 (←)">
+            <SkipBack className="h-4 w-4" />
+          </TButton>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                onClick={toggle}
+                size="icon"
+                className={cn(
+                  "h-12 w-12 shrink-0 rounded-full border-2 transition-all",
+                  playing
+                    ? "border-amber-400/60 bg-amber-500/20 text-amber-300 shadow-[0_0_18px_rgba(245,158,11,0.45)]"
+                    : "border-cyan-400/60 bg-cyan-500/20 text-cyan-200 shadow-[0_0_18px_rgba(34,211,238,0.4)] hover:bg-cyan-500/30",
+                )}
+              >
+                {playing ? (
+                  <Pause className="h-5 w-5" />
+                ) : (
+                  <Play className="h-5 w-5 translate-x-0.5" />
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="text-xs">
+              {playing ? "暂停 (Space)" : "播放 (Space)"}
+            </TooltipContent>
+          </Tooltip>
+          <TButton onClick={stepForward} tooltip="单步前进 (→)">
+            <SkipForward className="h-4 w-4" />
+          </TButton>
+        </div>
+        <div className="flex items-center justify-center gap-4">
+          <TButton onClick={reset} tooltip="复位 (R)">
+            <RotateCcw className="h-4 w-4" />
+          </TButton>
+          <TButton onClick={toggleSingleBlock} tooltip="单段运行模式" active={singleBlock}>
+            <Footprints className="h-4 w-4" />
+          </TButton>
+        </div>
+
+        <div className="h-px w-full bg-white/10 shrink-0" />
+
+        {/* Cycle speed presets */}
+        <div className="flex flex-col gap-2 shrink-0">
+          <div className="flex items-center gap-1.5">
+            <FastForward className="h-3 w-3 text-slate-500" />
+            <span className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">
+              循环速度
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {speedPresets.map((sp) => (
+              <button
+                key={sp}
+                onClick={() => setSpeed(sp)}
+                className={cn(
+                  "flex-1 rounded-md border px-1 py-1 font-mono text-[11px] font-semibold tabular-nums transition-colors",
+                  speed === sp
+                    ? "border-cyan-400/60 bg-cyan-500/25 text-cyan-200 shadow-[0_0_10px_rgba(34,211,238,0.3)]"
+                    : "border-white/10 bg-white/5 text-slate-400 hover:bg-white/10 hover:text-slate-200",
+                )}
+              >
+                {sp}×
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="h-px w-full bg-white/10 shrink-0" />
+
+        {/* Workpiece Setup */}
+        <div className="flex flex-col gap-2 shrink-0 rounded-md border border-white/10 bg-black/40 p-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">
+              工件设置
+            </span>
+            <button
+              onClick={useSimStore.getState().autoFitWorkpiece}
+              className="flex items-center gap-1 rounded bg-cyan-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-cyan-300 hover:bg-cyan-500/30 transition-colors"
+            >
+              <Zap className="h-2.5 w-2.5" /> 自动适配
+            </button>
+          </div>
+          
+          {/* Origin Datum selector */}
+          <div className="flex items-center gap-1 bg-black/60 p-0.5 rounded border border-white/5">
+            <button
+              onClick={() => useSimStore.getState().setOriginDatum("front_left")}
+              className={cn(
+                "flex-1 rounded py-0.5 text-[9px] font-mono font-semibold transition-colors",
+                useSimStore.getState().originDatum === "front_left"
+                  ? "bg-cyan-500/25 text-cyan-200"
+                  : "text-slate-500 hover:text-slate-300"
+              )}
+            >
+              前左 (G54)
+            </button>
+            <button
+              onClick={() => useSimStore.getState().setOriginDatum("center")}
+              className={cn(
+                "flex-1 rounded py-0.5 text-[9px] font-mono font-semibold transition-colors",
+                useSimStore.getState().originDatum === "center"
+                  ? "bg-cyan-500/25 text-cyan-200"
+                  : "text-slate-500 hover:text-slate-300"
+              )}
+            >
+              中心
+            </button>
+          </div>
+
+          {/* Dimensions (W x D x H) */}
+          <div className="grid grid-cols-3 gap-1">
+            <div className="flex flex-col">
+              <span className="text-[8px] text-slate-500">X（宽度）</span>
+              <input
+                type="number"
+                value={useSimStore.getState().workpiece.width}
+                onChange={(e) => useSimStore.getState().setWorkpiece({ width: Math.max(10, Number(e.target.value)) })}
+                className="w-full rounded border border-white/10 bg-black/60 px-1 py-0.5 font-mono text-[10px] text-slate-200"
+              />
+            </div>
+            <div className="flex flex-col">
+              <span className="text-[8px] text-slate-500">Y（深度）</span>
+              <input
+                type="number"
+                value={useSimStore.getState().workpiece.depth}
+                onChange={(e) => useSimStore.getState().setWorkpiece({ depth: Math.max(10, Number(e.target.value)) })}
+                className="w-full rounded border border-white/10 bg-black/60 px-1 py-0.5 font-mono text-[10px] text-slate-200"
+              />
+            </div>
+            <div className="flex flex-col">
+              <span className="text-[8px] text-slate-500">Z（高度）</span>
+              <input
+                type="number"
+                value={useSimStore.getState().workpiece.height}
+                onChange={(e) => useSimStore.getState().setWorkpiece({ height: Math.max(5, Number(e.target.value)) })}
+                className="w-full rounded border border-white/10 bg-black/60 px-1 py-0.5 font-mono text-[10px] text-slate-200"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-auto flex flex-col gap-1.5 rounded-md border border-white/10 bg-black/50 px-2.5 py-1.5 shrink-0">
+          <div className="flex justify-between items-center">
+            <span className="text-[8px] uppercase tracking-wider text-slate-500">程序段</span>
+            <span className="font-mono text-xs font-semibold tabular-nums text-slate-200">
+              {Math.min(currentMoveIndex + 1, totalMoves || 1)}<span className="text-slate-500"> / {totalMoves}</span>
+            </span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-[8px] uppercase tracking-wider text-slate-500">循环时间</span>
+            <span className="font-mono text-xs font-semibold tabular-nums text-slate-200">
+              {fmtTime(elapsedTimeSec)}<span className="text-slate-500"> / {fmtTime(cycleTimeSec)}</span>
+            </span>
+          </div>
+        </div>
+      </div>
+    </TooltipProvider>
+  );
+}
