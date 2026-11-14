@@ -1798,4 +1798,123 @@ M05
 M30
 `,
   },
+
+  /* ===================================================================== */
+  /* SF-260H — SampleCode 安全演示（B→A 映射，行程收束）                      */
+  /* 来源目录：SampleCode/；实机 RTCP/G68.2 等未仿真指令改为注释保留          */
+  /* ===================================================================== */
+  {
+    id: "sf260-sample-ortcp-c",
+    name: "SF-260H Sample：C 轴 RTCP（ORTCP_C）",
+    description:
+      "改编自 SampleCode/ORTCP_C：C 轴 0→90→180→270→0 回转演示；原 G43.4 保留为注释，B/C 机型映射为仿真 A/C。",
+    difficulty: "进阶",
+    machine: "Mill",
+    workpiece: { width: 80, depth: 80, height: 20 },
+    code: `; 来源：SampleCode/ORTCP_C
+; 适配：SF-260H 仿真（仅 C 轴回转，安全高度收束）
+G21 G90 G17
+G54
+T1 M06
+M03 S2000
+G00 X0 Y0 Z40
+; G43.4 H48          ; 实机 RTCP 开（仿真暂不执行）
+G00 C0
+G01 C90 F1000
+G01 C180 F1000
+G01 C270 F1000
+G01 C0 F1000
+; G49                ; 实机取消刀长/RTCP
+G00 Z40
+M05
+M30
+`,
+  },
+  {
+    id: "sf260-sample-ortcp-a",
+    name: "SF-260H Sample：A 轴 RTCP（ORTCP_B）",
+    description:
+      "改编自 SampleCode/ORTCP_B：原 B 轴摆角映射为仿真 A 轴（0→-20→0→20→90→0），用于摇篮倾斜演示。",
+    difficulty: "进阶",
+    machine: "Mill",
+    workpiece: { width: 80, depth: 80, height: 20 },
+    code: `; 来源：SampleCode/ORTCP_B
+; 适配：实机 B 轴 → 仿真 A 轴；去掉 MILL/G145 等华中专用字
+G21 G90 G17
+G54
+T1 M06
+M03 S2000
+G00 X0 Y0 Z40
+; G43.4 H48
+; G145 Q1            ; 实机 RTCP 模式字（仿真忽略）
+G00 A0
+G01 A-20 F1000
+G01 A0 F1000
+G01 A20 F1000
+G01 A90 F1000
+G01 A0 F1000
+; G49
+G00 Z40
+M05
+M30
+`,
+  },
+  {
+    id: "sf260-sample-ortcp-ac",
+    name: "SF-260H Sample：A/C 联动 RTCP（ORTCP_BC）",
+    description:
+      "改编自 SampleCode/ORTCP_BC：原 B/C 联动姿态序列映射为 A/C，验证摇篮+转台组合回转。",
+    difficulty: "高级",
+    machine: "Mill",
+    workpiece: { width: 80, depth: 80, height: 20 },
+    code: `; 来源：SampleCode/ORTCP_BC
+; 适配：B→A；姿态序列保持与原样例一致
+G21 G90 G17
+G54
+T1 M06
+M03 S2000
+G00 X0 Y0 Z40
+; G43.4 H48
+G00 A0 C0
+G01 A90 C90 F1000      ; 原 C90 B90
+G01 A120 C0 F1000      ; 原 C0 B120
+G01 A90 C-90 F1000     ; 原 C-90 B90
+G01 A0 C0 F1000
+; G49
+G00 Z40
+M05
+M30
+`,
+  },
+  {
+    id: "sf260-sample-3plus2-drill",
+    name: "SF-260H Sample：3+2 钻孔（G81 G17）",
+    description:
+      "改编自 SampleCode/G81 G17：保留 A 倾斜 + G81 三点钻孔结构；行程缩至 80×80×20 工件安全范围，去掉超行程与乱码注释。",
+    difficulty: "高级",
+    machine: "Mill",
+    workpiece: { width: 80, depth: 80, height: 20 },
+    code: `; 来源：SampleCode/G81 G17
+; 适配：原 B45/X300/Z-35 等缩到 SF-260H 安全包络；B→A
+G21 G90 G17
+G54
+T3 M06                   ; 钻头 Ø3
+M03 S3000
+G00 X0 Y0 Z40
+G00 A20 C0               ; 原 B45，演示用 20° 倾斜
+; G43.4 H50
+; G68.2 X0 Y0 Z0 I90 J-45 K-90 P0
+; G53.1                  ; 实机刀具法向对齐（仿真暂注释）
+G00 Z10
+G98 G81 X0 Y0 Z-8 R2 F200
+X15
+Y15
+G80
+G00 Z40
+G00 A0 C0
+G00 X0 Y0
+M05
+M30
+`,
+  },
 ];

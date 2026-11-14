@@ -228,8 +228,10 @@ export const useSimStore = create<SimState>((set, get) => ({
       programName: ex.name,
       playing: false,
       originDatum: datum,
-      // 五轴示例自动切到 SF-260H 机型
-      ...(id === "sf260-5axis-pose" ? { machineId: "sf260_5axis" as MachineType } : {}),
+      // 五轴 / SampleCode 改编示例自动切到 SF-260H 机型
+      ...(id.startsWith("sf260-")
+        ? { machineId: "sf260_5axis" as MachineType }
+        : {}),
       ...patch,
     } as Partial<SimState>);
   },
