@@ -23,7 +23,8 @@ import {
   deleteProgram,
   exportProgram,
   exportAllPrograms,
-  importPrograms,
+  importProgramFile,
+  GCODE_FILE_ACCEPT,
   type SavedProgram,
 } from "@/lib/cnc/programStore";
 import { CODE_SNIPPETS, type Snippet } from "@/lib/cnc/snippets";
@@ -132,7 +133,7 @@ export default function ProgramManager() {
   const handleLoad = useCallback(
     (p: SavedProgram) => {
       // Load code into the editor + apply the saved workpiece
-      useSimStore.getState().setSource(p.code);
+      useSimStore.getState().setSource(p.code, { programName: p.name });
       useSimStore.getState().setWorkpiece({
         width: p.workpiece.width,
         depth: p.workpiece.depth,
@@ -183,14 +184,25 @@ export default function ProgramManager() {
       e.target.value = ""; // allow re-importing the same file later
       if (!file) return;
       try {
-        const count = await importPrograms(file);
-        refresh();
+        const result = await importProgramFile(file);
+        if (result.kind === "library") {
+          refresh();
+          toast({
+            title: "导入完成",
+            description:
+              result.count > 0
+                ? `已导入 ${result.count} 个程序到程序库。`
+                : "文件中未找到有效程序。",
+          });
+          return;
+        }
+        useSimStore.getState().setSource(result.code, {
+          programName: result.name,
+        });
+        setNameInput(result.name);
         toast({
-          title: "导入完成",
-          description:
-            count > 0
-              ? `已导入 ${count} 个程序。`
-              : "文件中未找到有效程序。",
+          title: "G 代码已导入",
+          description: `「${result.name}」已载入编辑器。可点「保存」写入程序库。`,
         });
       } catch (err) {
         toast({
@@ -375,15 +387,15 @@ export default function ProgramManager() {
               size="sm"
               variant="outline"
               onClick={handleImportClick}
-              className="h-7 border-white/10 bg-transparent text-[10px] text-slate-300 hover:bg-white/10"
+              className="h-7 border-cyan-500/40 bg-cyan-500/10 text-[10px] text-cyan-100 hover:bg-cyan-500/20"
             >
               <Upload className="size-3" />
-              导入 (JSON)
+              导入程序
             </Button>
             <input
               ref={fileInputRef}
               type="file"
-              accept="application/json,.json"
+              accept={GCODE_FILE_ACCEPT}
               className="hidden"
               onChange={handleImportFile}
             />

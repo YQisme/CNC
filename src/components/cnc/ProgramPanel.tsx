@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -9,9 +9,15 @@ import {
   Layers,
   Ruler,
   CircleAlert,
+  Upload,
 } from "lucide-react";
 import { useSimStore } from "@/lib/cnc/store";
 import { CNC_EXAMPLES } from "@/lib/cnc/examples";
+import {
+  GCODE_FILE_ACCEPT,
+  importProgramFile,
+} from "@/lib/cnc/programStore";
+import { useToast } from "@/hooks/use-toast";
 import {
   Select,
   SelectContent,
@@ -20,6 +26,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import GCodeEditor from "./GCodeEditor";
 
@@ -30,6 +37,7 @@ const DIFFICULTY_COLOR: Record<string, string> = {
 };
 
 export default function ProgramPanel() {
+  const { toast } = useToast();
   const exampleId = useSimStore((s) => s.exampleId);
   const loadExample = useSimStore((s) => s.loadExample);
   const workpiece = useSimStore((s) => s.workpiece);
@@ -38,6 +46,7 @@ export default function ProgramPanel() {
   const cycleTimeSec = useSimStore((s) => s.cycleTimeSec);
   const parseResult = useSimStore((s) => s.parseResult);
   const setSource = useSimStore((s) => s.setSource);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const currentExample = useMemo(
     () => CNC_EXAMPLES.find((e) => e.id === exampleId),
@@ -53,7 +62,41 @@ export default function ProgramPanel() {
     [parseResult],
   );
 
-  const hasIssues = parseErrors.length > 0 || parseWarnings.length > 0;
+  const handleImportClick = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  const handleImportFile = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      e.target.value = "";
+      if (!file) return;
+      try {
+        const result = await importProgramFile(file);
+        if (result.kind === "library") {
+          toast({
+            title: "程序库已导入",
+            description:
+              result.count > 0
+                ? `已合并 ${result.count} 个程序到本地程序库（见「程序库」页）。`
+                : "JSON 中未找到有效程序。",
+          });
+          return;
+        }
+        setSource(result.code, { programName: result.name });
+        toast({
+          title: "程序已导入",
+          description: `「${result.name}」已载入编辑器（${result.code.length} 字符）。`,
+        });
+      } catch (err) {
+        toast({
+          title: "导入失败",
+          description: err instanceof Error ? err.message : "无法读取文件。",
+        });
+      }
+    },
+    [setSource, toast],
+  );
 
   return (
     <div className="flex h-full flex-col bg-[#0b0d10]">
@@ -91,6 +134,24 @@ export default function ProgramPanel() {
               </SelectItem>
             </SelectContent>
           </Select>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={handleImportClick}
+            className="h-8 shrink-0 border-cyan-500/40 bg-cyan-500/10 px-2 text-[11px] text-cyan-100 hover:bg-cyan-500/20"
+            title="导入 G 代码或程序库 JSON"
+          >
+            <Upload className="size-3.5" />
+            导入
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept={GCODE_FILE_ACCEPT}
+            className="hidden"
+            onChange={handleImportFile}
+          />
           {currentExample && (
             <Badge
               variant="outline"

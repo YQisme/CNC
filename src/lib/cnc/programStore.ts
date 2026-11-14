@@ -231,6 +231,52 @@ export async function importPrograms(file: File): Promise<number> {
   return added;
 }
 
+/** Common CNC / CAM program extensions (plus extensionless SampleCode). */
+export const GCODE_FILE_ACCEPT =
+  ".nc,.NC,.cnc,.CNC,.tap,.TAP,.mpf,.MPF,.ptp,.PTP,.txt,.TXT,.gcode,.GCODE,.ngc,.NGC,application/json,.json";
+
+/** Strip path and common CNC extensions for display / program name. */
+export function programNameFromFileName(fileName: string): string {
+  const base = fileName.replace(/^.*[\\/]/, "").trim() || "imported";
+  return base.replace(/\.(nc|cnc|tap|mpf|ptp|txt|gcode|ngc|json)$/i, "") || base;
+}
+
+function looksLikeJsonLibrary(text: string, fileName: string): boolean {
+  if (/\.json$/i.test(fileName)) return true;
+  const t = text.replace(/^\uFEFF/, "").trimStart();
+  return t.startsWith("{") || t.startsWith("[");
+}
+
+export type ImportFileResult =
+  | { kind: "library"; count: number }
+  | { kind: "gcode"; name: string; code: string };
+
+/**
+ * Import a user-selected file:
+ * - JSON program library → merge into localStorage
+ * - otherwise treat as G-code / NC text and return code for the editor
+ */
+export async function importProgramFile(file: File): Promise<ImportFileResult> {
+  const text = await file.text();
+  const normalized = text.replace(/^\uFEFF/, "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  if (looksLikeJsonLibrary(normalized, file.name)) {
+    // Reuse JSON merge via a synthetic File so importPrograms stays the single parser.
+    const jsonFile = new File([normalized], file.name || "programs.json", {
+      type: "application/json",
+    });
+    const count = await importPrograms(jsonFile);
+    return { kind: "library", count };
+  }
+  if (!normalized.trim()) {
+    throw new Error("文件为空。");
+  }
+  return {
+    kind: "gcode",
+    name: programNameFromFileName(file.name),
+    code: normalized.endsWith("\n") ? normalized : normalized + "\n",
+  };
+}
+
 function sanitizeFileName(name: string): string {
   return (name || "program")
     .replace(/[\\/:*?"<>|]+/g, "_")

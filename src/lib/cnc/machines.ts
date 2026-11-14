@@ -23,6 +23,31 @@ export interface CncMachineSpec {
 
 export const MACHINE_CATALOG: CncMachineSpec[] = [
   {
+    id: "sf260_5axis",
+    name: "佳时特 SF-260H 五轴坐标铣磨复合加工中心",
+    shortName: "SF-260H 五轴",
+    category: "铣磨复合",
+    description:
+      "小型立式五轴坐标铣磨复合机：力封闭床身、XYZ 直线电机直驱、摇篮式 A/C 双转台，配套华中 HNC-848D。",
+    spindleMaxRpm: 30000,
+    rapidFeed: 60000,
+    maxTravel: { x: 260, y: 260, z: 260 },
+    toolChangerCapacity: 16,
+    supportedGCode: [
+      "G00",
+      "G01",
+      "G02",
+      "G03",
+      "G43.4",
+      "G43.5",
+      "G53.1",
+      "G68.2",
+      "G90",
+      "G91",
+    ],
+    iconName: "Cpu",
+  },
+  {
     id: "vmc_3axis",
     name: "立式加工中心（三轴 VMC）",
     shortName: "三轴 VMC",
@@ -74,33 +99,7 @@ export const MACHINE_CATALOG: CncMachineSpec[] = [
     supportedGCode: ["G00", "G01", "G02", "G03", "G90", "G91"],
     iconName: "Box",
   },
-  {
-    id: "sf260_5axis",
-    name: "佳时特 SF-260H 五轴坐标铣磨复合加工中心",
-    shortName: "SF-260H 五轴",
-    category: "铣磨复合",
-    description:
-      "小型立式五轴坐标铣磨复合机：力封闭床身、XYZ 直线电机直驱、摇篮式 A/C 双转台，配套华中 HNC-848D。",
-    spindleMaxRpm: 30000,
-    rapidFeed: 60000,
-    maxTravel: { x: 260, y: 260, z: 260 },
-    toolChangerCapacity: 16,
-    supportedGCode: [
-      "G00",
-      "G01",
-      "G02",
-      "G03",
-      "G43.4",
-      "G43.5",
-      "G53.1",
-      "G68.2",
-      "G90",
-      "G91",
-    ],
-    iconName: "Cpu",
-  },
 ];
-
 export function getMachineById(id: MachineType): CncMachineSpec {
   return MACHINE_CATALOG.find((m) => m.id === id) ?? MACHINE_CATALOG[0];
 }

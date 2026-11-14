@@ -89,7 +89,10 @@ export interface SimState {
 
   // actions
   loadExample: (id: string) => void;
-  setSource: (code: string, opts?: { keepPlay?: boolean }) => void;
+  setSource: (
+    code: string,
+    opts?: { keepPlay?: boolean; programName?: string },
+  ) => void;
   setWorkpiece: (w: Partial<Workpiece>) => void;
   setOriginDatum: (datum: OriginDatum) => void;
   autoFitWorkpiece: () => void;
@@ -185,7 +188,7 @@ export const useSimStore = create<SimState>((set, get) => ({
   parseResult: initialParsed,
   workpiece: initialWorkpiece,
   originDatum: "center",
-  machineId: "vmc_3axis",
+  machineId: "sf260_5axis",
   materialId: "aluminum-6061",
   playing: false,
   speed: 1,
@@ -256,7 +259,7 @@ export const useSimStore = create<SimState>((set, get) => ({
     }
     set({
       exampleId: null,
-      programName: "自定义程序",
+      programName: (opts?.programName ?? "").trim() || "自定义程序",
       playing: opts?.keepPlay ? base.playing : false,
       originDatum: datum,
       workpiece: newWorkpiece,
