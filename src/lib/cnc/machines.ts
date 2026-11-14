@@ -1,12 +1,17 @@
 // CNC Simulator Pro — Machine Architectures & Specifications
 
-export type MachineType = "vmc_3axis" | "lathe_cnc" | "hmc_4axis" | "gantry_router";
+export type MachineType =
+  | "vmc_3axis"
+  | "lathe_cnc"
+  | "hmc_4axis"
+  | "gantry_router"
+  | "sf260_5axis";
 
 export interface CncMachineSpec {
   id: MachineType;
   name: string;
   shortName: string;
-  category: "铣削" | "车削" | "雕刻/路由";
+  category: "铣削" | "车削" | "雕刻/路由" | "铣磨复合";
   description: string;
   spindleMaxRpm: number;
   rapidFeed: number; // mm/min
@@ -68,6 +73,31 @@ export const MACHINE_CATALOG: CncMachineSpec[] = [
     toolChangerCapacity: 10,
     supportedGCode: ["G00", "G01", "G02", "G03", "G90", "G91"],
     iconName: "Box",
+  },
+  {
+    id: "sf260_5axis",
+    name: "佳时特 SF-260H 五轴坐标铣磨复合加工中心",
+    shortName: "SF-260H 五轴",
+    category: "铣磨复合",
+    description:
+      "小型立式五轴坐标铣磨复合机：力封闭床身、XYZ 直线电机直驱、摇篮式 A/C 双转台，配套华中 HNC-848D。",
+    spindleMaxRpm: 30000,
+    rapidFeed: 60000,
+    maxTravel: { x: 260, y: 260, z: 260 },
+    toolChangerCapacity: 16,
+    supportedGCode: [
+      "G00",
+      "G01",
+      "G02",
+      "G03",
+      "G43.4",
+      "G43.5",
+      "G53.1",
+      "G68.2",
+      "G90",
+      "G91",
+    ],
+    iconName: "Cpu",
   },
 ];
 

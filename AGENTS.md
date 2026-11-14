@@ -1,9 +1,9 @@
 <!-- BEGIN:nextjs-agent-rules -->
 
-## 这不是你熟悉的那个 Next.js
+## This is NOT the Next.js you know
 
-此版本包含破坏性变更 — API、约定与文件结构可能都与你的训练数据不同。在编写任何代码之前，请先阅读 `node_modules/next/dist/docs/` 中的相关指南（相对本文件所在目录解析；在 monorepo 中，从仓库根目录可能看不到 `next` 包）。请留意弃用提示。
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
 
-本区块由 `next dev` 写入并会重新添加 — 可在 `node_modules/next/dist/server/lib/generate-agent-files.js` 中核实。若仅在 diff 中删除它，只会再次产生未提交的变更；将其随工作一并提交可保持工作区干净。
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->

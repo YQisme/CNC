@@ -22,6 +22,12 @@ export interface Move {
   type: MoveType;
   from: Vec3; // start position (mm) — Z is up
   to: Vec3; // end position (mm)
+  /** 旋转轴起点（度）— 摇篮 A / 转台 C */
+  fromA: number;
+  fromC: number;
+  /** 旋转轴终点（度） */
+  toA: number;
+  toC: number;
   // Arc data (only for arc_cw / arc_ccw)
   center?: Vec2; // arc center XY (absolute), for arcs in XY plane
   plane?: "XY" | "XZ" | "YZ";
@@ -49,6 +55,17 @@ export interface Vec3 {
   x: number;
   y: number;
   z: number;
+}
+
+/** 五轴机床姿态：直线轴 mm + 旋转轴 deg */
+export interface MachinePose extends Vec3 {
+  a: number;
+  c: number;
+}
+
+export interface RotaryAxes {
+  a: number;
+  c: number;
 }
 
 export interface Vec2 {

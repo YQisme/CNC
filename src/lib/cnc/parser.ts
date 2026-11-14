@@ -3,6 +3,7 @@
 // with full modal state tracking (Fanuc-style milling).
 
 import type {
+  MachinePose,
   Move,
   MoveType,
   ParseError,
@@ -11,6 +12,7 @@ import type {
   Vec2,
   Vec3,
 } from "./types";
+import { rotaryPathLength } from "./kinematics";
 
 interface Word {
   letter: string; // uppercase letter, e.g. "G"
@@ -117,6 +119,8 @@ export function parseGCode(source: string): ParseResult {
 
   // Modal state
   let pos: Vec3 = { x: 0, y: 0, z: 0 };
+  let posA = 0; // deg
+  let posC = 0; // deg
   let absMode = true; // G90
   let unitsMm = true; // G21 (true=mm, false=inch)
   let plane: "XY" | "XZ" | "YZ" = "XY"; // G17
@@ -156,6 +160,8 @@ export function parseGCode(source: string): ParseResult {
   const pushMove = (
     type: MoveType,
     to: Vec3,
+    toA: number,
+    toC: number,
     lineNo: number,
     raw: string,
     comment: string | undefined,
@@ -163,10 +169,14 @@ export function parseGCode(source: string): ParseResult {
   ) => {
     let length: number;
     if (type === "rapid" || type === "linear") {
-      length = Math.hypot(to.x - pos.x, to.y - pos.y, to.z - pos.z);
+      const xyz = Math.hypot(to.x - pos.x, to.y - pos.y, to.z - pos.z);
+      const rot = rotaryPathLength(toA - posA, toC - posC);
+      length = Math.hypot(xyz, rot);
     } else if (type === "arc_cw" || type === "arc_ccw") {
       const sweep = extra?.sweep ?? 0;
-      length = (extra?.radius ?? 0) * sweep;
+      const arc = (extra?.radius ?? 0) * sweep;
+      const rot = rotaryPathLength(toA - posA, toC - posC);
+      length = Math.hypot(arc, rot);
     } else {
       length = 0;
     }
@@ -176,6 +186,10 @@ export function parseGCode(source: string): ParseResult {
       type,
       from: { ...pos },
       to: { ...to },
+      fromA: posA,
+      fromC: posC,
+      toA,
+      toC,
       feed,
       spindle,
       spindleOn,
@@ -189,6 +203,8 @@ export function parseGCode(source: string): ParseResult {
     };
     moves.push(move);
     pos = { ...to };
+    posA = toA;
+    posC = toC;
     updateBounds(pos);
   };
 
@@ -200,6 +216,15 @@ export function parseGCode(source: string): ParseResult {
     if (word === undefined) return current;
     const v = toMm(word);
     return absMode ? v : current + v;
+  };
+
+  /** 旋转轴用角度，不受公英制换算影响 */
+  const resolveAngle = (
+    current: number,
+    word: number | undefined,
+  ): number => {
+    if (word === undefined) return current;
+    return absMode ? word : current + word;
   };
 
   for (let li = 0; li < lines.length; li++) {
@@ -219,6 +244,8 @@ export function parseGCode(source: string): ParseResult {
     const x = tok.words.find((w) => w.letter === "X")?.value;
     const y = tok.words.find((w) => w.letter === "Y")?.value;
     const z = tok.words.find((w) => w.letter === "Z")?.value;
+    const aWord = tok.words.find((w) => w.letter === "A")?.value;
+    const cWord = tok.words.find((w) => w.letter === "C")?.value;
     const i = tok.words.find((w) => w.letter === "I")?.value;
     const j = tok.words.find((w) => w.letter === "J")?.value;
     const k = tok.words.find((w) => w.letter === "K")?.value;
@@ -358,7 +385,7 @@ export function parseGCode(source: string): ParseResult {
     // Dwell
     if (lineMotion === 4) {
       const seconds = p !== undefined ? p : q !== undefined ? q : 0;
-      pushMove("dwell", { ...pos }, lineNo, raw, tok.comment, {
+      pushMove("dwell", { ...pos }, posA, posC, lineNo, raw, tok.comment, {
         dwell: seconds,
       });
       continue;
@@ -366,17 +393,26 @@ export function parseGCode(source: string): ParseResult {
 
     // G28 home
     if (gWords.some((w) => Math.round(w.value) === 28)) {
-      // rapid to home (0,0,0) — but keep it visible
-      pushMove("rapid", { x: 0, y: 0, z: 0 }, lineNo, raw, tok.comment);
-      // reset canned cycle
+      // rapid to home (0,0,0,A0,C0)
+      pushMove("rapid", { x: 0, y: 0, z: 0 }, 0, 0, lineNo, raw, tok.comment);
       cannedCycle = null;
       continue;
     }
 
-    // Compute target XYZ
+    // Compute target XYZ + rotary
     const tx = resolveAxis(pos.x, x);
     const ty = resolveAxis(pos.y, y);
     const tz = resolveAxis(pos.z, z);
+    const ta = resolveAngle(posA, aWord);
+    const tc = resolveAngle(posC, cWord);
+    const hasRotary = aWord !== undefined || cWord !== undefined;
+    const hasLinear =
+      x !== undefined ||
+      y !== undefined ||
+      z !== undefined ||
+      i !== undefined ||
+      j !== undefined ||
+      k !== undefined;
 
     // Canned cycle (G81/82/83) handling — more accurate standard simulation
     if (cannedCycle !== null && (x !== undefined || y !== undefined || z !== undefined)) {
@@ -387,9 +423,9 @@ export function parseGCode(source: string): ParseResult {
       
       // 1) rapid to R plane above the hole
       if (x !== undefined || y !== undefined) {
-        pushMove("rapid", { x: tx, y: ty, z: rPlane }, lineNo, raw, tok.comment);
+        pushMove("rapid", { x: tx, y: ty, z: rPlane }, ta, tc, lineNo, raw, tok.comment);
       } else {
-        pushMove("rapid", { x: pos.x, y: pos.y, z: rPlane }, lineNo, raw, tok.comment);
+        pushMove("rapid", { x: pos.x, y: pos.y, z: rPlane }, ta, tc, lineNo, raw, tok.comment);
       }
       
       if (cannedCycle === 83) {
@@ -400,37 +436,41 @@ export function parseGCode(source: string): ParseResult {
         while (currentZ > depth) {
           currentZ -= peck;
           if (currentZ < depth) currentZ = depth;
-          pushMove("linear", { x: tx, y: ty, z: currentZ }, lineNo, raw, tok.comment);
+          pushMove("linear", { x: tx, y: ty, z: currentZ }, ta, tc, lineNo, raw, tok.comment);
           // Retract to R plane
-          pushMove("rapid", { x: tx, y: ty, z: rPlane }, lineNo, raw, tok.comment);
+          pushMove("rapid", { x: tx, y: ty, z: rPlane }, ta, tc, lineNo, raw, tok.comment);
           // Rapid back to just above the previous cut
           if (currentZ > depth) {
-            pushMove("rapid", { x: tx, y: ty, z: currentZ + 1 }, lineNo, raw, tok.comment);
+            pushMove("rapid", { x: tx, y: ty, z: currentZ + 1 }, ta, tc, lineNo, raw, tok.comment);
           }
         }
       } else {
         // 2) feed plunge to depth
-        pushMove("linear", { x: tx, y: ty, z: depth }, lineNo, raw, tok.comment);
+        pushMove("linear", { x: tx, y: ty, z: depth }, ta, tc, lineNo, raw, tok.comment);
         // G82 Dwell at bottom
         if (cannedCycle === 82 && p !== undefined) {
-          pushMove("dwell", { x: tx, y: ty, z: depth }, lineNo, raw, tok.comment, { dwell: p });
+          pushMove("dwell", { x: tx, y: ty, z: depth }, ta, tc, lineNo, raw, tok.comment, { dwell: p });
         }
         // 3) rapid retract to R plane
-        pushMove("rapid", { x: tx, y: ty, z: rPlane }, lineNo, raw, tok.comment);
+        pushMove("rapid", { x: tx, y: ty, z: rPlane }, ta, tc, lineNo, raw, tok.comment);
       }
       continue;
     }
 
     // No axis motion and no motion code → state-only line (F/S/T/M/comments)
-    if (x === undefined && y === undefined && z === undefined && i === undefined && j === undefined && k === undefined) {
+    if (!hasLinear && !hasRotary) {
       continue;
     }
 
-    // Determine motion
+    // Determine motion — 纯 A/C 旋转按当前 G0/G1 模态（默认 G0）
     const useMotion = lineMotion ?? motion;
-    if (useMotion === 0 || useMotion === 1) {
-      const type: MoveType = useMotion === 0 ? "rapid" : "linear";
-      pushMove(type, { x: tx, y: ty, z: tz }, lineNo, raw, tok.comment);
+    if (
+      useMotion === 0 ||
+      useMotion === 1 ||
+      (hasRotary && !hasLinear && useMotion !== 2 && useMotion !== 3)
+    ) {
+      const moveType: MoveType = useMotion === 1 ? "linear" : "rapid";
+      pushMove(moveType, { x: tx, y: ty, z: tz }, ta, tc, lineNo, raw, tok.comment);
     } else if (useMotion === 2 || useMotion === 3) {
       const cw = useMotion === 2;
       let fromA = pos.x, fromB = pos.y, toA = tx, toB = ty;
@@ -464,6 +504,8 @@ export function parseGCode(source: string): ParseResult {
       pushMove(
         cw ? "arc_cw" : "arc_ccw",
         { x: tx, y: ty, z: tz },
+        ta,
+        tc,
         lineNo,
         raw,
         tok.comment,
@@ -501,13 +543,22 @@ export function parseGCode(source: string): ParseResult {
   };
 }
 
-// Utility: sample a move at parametric t (0..1) returning XYZ
-export function sampleMove(move: Move, t: number): Vec3 {
+function sampleRotary(move: Move, t: number): { a: number; c: number } {
+  return {
+    a: move.fromA + (move.toA - move.fromA) * t,
+    c: move.fromC + (move.toC - move.fromC) * t,
+  };
+}
+
+/** 采样姿态（XYZ + A/C），t ∈ [0,1] */
+export function samplePose(move: Move, t: number): MachinePose {
+  const rot = sampleRotary(move, t);
   if (move.type === "rapid" || move.type === "linear") {
     return {
       x: move.from.x + (move.to.x - move.from.x) * t,
       y: move.from.y + (move.to.y - move.from.y) * t,
       z: move.from.z + (move.to.z - move.from.z) * t,
+      ...rot,
     };
   }
   if (move.type === "arc_cw" || move.type === "arc_ccw") {
@@ -526,22 +577,31 @@ export function sampleMove(move: Move, t: number): Vec3 {
         x: valA,
         y: move.from.y + (move.to.y - move.from.y) * t,
         z: valB,
+        ...rot,
       };
     } else if (plane === "YZ") {
       return {
         x: move.from.x + (move.to.x - move.from.x) * t,
         y: valA,
         z: valB,
+        ...rot,
       };
     }
     return {
       x: valA,
       y: valB,
       z: move.from.z + (move.to.z - move.from.z) * t,
+      ...rot,
     };
   }
   // dwell — stays put
-  return { ...move.from };
+  return { ...move.from, a: move.fromA, c: move.fromC };
+}
+
+/** @deprecated 兼容旧调用：仅返回 XYZ */
+export function sampleMove(move: Move, t: number): Vec3 {
+  const p = samplePose(move, t);
+  return { x: p.x, y: p.y, z: p.z };
 }
 
 // Total estimated cycle time (seconds) ignoring spindle accel

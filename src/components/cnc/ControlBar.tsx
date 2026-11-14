@@ -52,12 +52,21 @@ function fmt(n: number, digits = 2) {
 // ---------- DRO readout ----------
 function DRO() {
   const pos = useSimStore((s) => s.position);
+  const rotary = useSimStore((s) => s.rotary);
+  const machineId = useSimStore((s) => s.machineId);
   const isCutting = useSimStore((s) => s.isCutting);
-  const axes = [
-    { label: "X", v: pos.x, color: "#34d399" },
-    { label: "Y", v: pos.y, color: "#22d3ee" },
-    { label: "Z", v: pos.z, color: "#4ade80" },
+  const showRotary = machineId === "sf260_5axis";
+  const axes: { label: string; v: number; color: string; unit: string }[] = [
+    { label: "X", v: pos.x, color: "#34d399", unit: "mm" },
+    { label: "Y", v: pos.y, color: "#22d3ee", unit: "mm" },
+    { label: "Z", v: pos.z, color: "#4ade80", unit: "mm" },
   ];
+  if (showRotary) {
+    axes.push(
+      { label: "A", v: rotary.a, color: "#a78bfa", unit: "deg" },
+      { label: "C", v: rotary.c, color: "#f472b6", unit: "deg" },
+    );
+  }
   return (
     <div className="flex flex-col gap-1.5 w-full">
       {axes.map((a) => (
@@ -73,14 +82,14 @@ function DRO() {
               {a.label}
             </span>
             <span className="text-[8px] uppercase tracking-wider text-slate-500">
-              mm
+              {a.unit}
             </span>
           </div>
           <span
             className="font-mono text-lg font-semibold tabular-nums leading-tight"
             style={{ color: a.color, textShadow: `0 0 8px ${a.color}55` }}
           >
-            {fmt(a.v, 3)}
+            {fmt(a.v, a.unit === "deg" ? 2 : 3)}
           </span>
           {isCutting && a.label === "Z" && (
             <span className="absolute right-1 top-1 h-1.5 w-1.5 animate-pulse rounded-full bg-rose-500" />
@@ -348,6 +357,8 @@ export default function ControlBar() {
   const toggleBlockSkip = useSimStore((s) => s.toggleBlockSkip);
   const machineMode = useSimStore((s) => s.machineMode);
   const setMachineMode = useSimStore((s) => s.setMachineMode);
+  const machineId = useSimStore((s) => s.machineId);
+  const setMachineId = useSimStore((s) => s.setMachineId);
   const currentMoveIndex = useSimStore((s) => s.currentMoveIndex);
   const cycleTimeSec = useSimStore((s) => s.cycleTimeSec);
   const elapsedTimeSec = useSimStore((s) => s.elapsedTimeSec);
@@ -445,8 +456,8 @@ export default function ControlBar() {
               机床
             </div>
             <select
-              value={useSimStore.getState().machineId}
-              onChange={(e) => useSimStore.getState().setMachineId(e.target.value as MachineType)}
+              value={machineId}
+              onChange={(e) => setMachineId(e.target.value as MachineType)}
               className="rounded bg-white/5 font-mono text-[10px] font-semibold text-slate-200 px-1 py-0.5 outline-none border border-white/10 cursor-pointer"
             >
               {MACHINE_CATALOG.map((m) => (

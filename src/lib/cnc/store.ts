@@ -4,8 +4,8 @@
 "use client";
 
 import { create } from "zustand";
-import { parseGCode, sampleMove, estimateCycleTime } from "./parser";
-import type { Move, OriginDatum, ParseResult, Vec3 } from "./types";
+import { parseGCode, samplePose, estimateCycleTime } from "./parser";
+import type { Move, OriginDatum, ParseResult, RotaryAxes, Vec3 } from "./types";
 import type { MachineType } from "./machines";
 import { CNC_EXAMPLES, type CncExample } from "./examples";
 
@@ -73,6 +73,7 @@ export interface SimState {
 
   // telemetry
   position: Vec3;
+  rotary: RotaryAxes; // A/C 度
   spindleRpm: number;
   spindleOn: boolean;
   spindleDir: 1 | -1;
@@ -117,6 +118,7 @@ function telemetryAt(moves: Move[], index: number, t: number) {
   if (moves.length === 0) {
     return {
       position: { x: 0, y: 0, z: 0 } as Vec3,
+      rotary: { a: 0, c: 0 } as RotaryAxes,
       spindleRpm: 0,
       spindleOn: false,
       spindleDir: 1 as 1 | -1,
@@ -129,11 +131,12 @@ function telemetryAt(moves: Move[], index: number, t: number) {
   }
   const idx = Math.min(Math.max(index, 0), moves.length - 1);
   const m = moves[idx];
-  const pos = sampleMove(m, t);
+  const pose = samplePose(m, t);
   const isCutting =
-    m.type !== "rapid" && m.type !== "dwell" && pos.z < -0.01;
+    m.type !== "rapid" && m.type !== "dwell" && pose.z < -0.01;
   return {
-    position: pos,
+    position: { x: pose.x, y: pose.y, z: pose.z },
+    rotary: { a: pose.a, c: pose.c },
     spindleRpm: m.spindle,
     spindleOn: m.spindleOn,
     spindleDir: m.spindleDir,
@@ -225,6 +228,8 @@ export const useSimStore = create<SimState>((set, get) => ({
       programName: ex.name,
       playing: false,
       originDatum: datum,
+      // 五轴示例自动切到 SF-260H 机型
+      ...(id === "sf260-5axis-pose" ? { machineId: "sf260_5axis" as MachineType } : {}),
       ...patch,
     } as Partial<SimState>);
   },

@@ -24,6 +24,8 @@ import {
 import { toolRadius, getToolByNumber, type CncTool } from "@/lib/cnc/tools";
 import { getMaterialById } from "@/lib/cnc/materials";
 import type { Move } from "@/lib/cnc/types";
+import Sf260Machine, { Sf260WorkRotaryGroup } from "@/components/cnc/machines/Sf260Machine";
+import { workpieceToWorld } from "@/lib/cnc/kinematics";
 
 const TOOL_FALLBACK: CncTool = {
   number: 1,
@@ -563,11 +565,24 @@ function MachineFrame() {
 
 // ---------- tool tip marker ----------
 function ToolMarker() {
-  const pos = useSimStore((s) => s.position);
   const isCutting = useSimStore((s) => s.isCutting);
+  const machineId = useSimStore((s) => s.machineId);
+  const workpiece = useSimStore((s) => s.workpiece);
+  const originDatum = useSimStore((s) => s.originDatum);
   const ref = useRef<THREE.Mesh>(null);
+  const tmp = useRef(new THREE.Vector3());
   useFrame(() => {
-    if (ref.current) ref.current.position.set(pos.x, pos.z, -pos.y);
+    if (!ref.current) return;
+    const { position: pos, rotary } = useSimStore.getState();
+    if (machineId === "sf260_5axis") {
+      const cx = originDatum === "front_left" ? workpiece.width / 2 : 0;
+      const cy = originDatum === "front_left" ? workpiece.depth / 2 : 0;
+      const cz = originDatum === "front_left" ? -workpiece.depth / 2 : 0;
+      workpieceToWorld({ x: pos.x - cx, y: pos.y - cy, z: pos.z }, rotary, tmp.current);
+      ref.current.position.set(tmp.current.x + cx, tmp.current.y, tmp.current.z + cz);
+    } else {
+      ref.current.position.set(pos.x, pos.z, -pos.y);
+    }
   });
   return (
     <mesh ref={ref}>
@@ -588,6 +603,8 @@ function CameraController() {
   const nonce = useViewStore((s) => s.cameraNonce);
   const target = useSimStore((s) => s.workpiece);
   const originDatum = useSimStore((s) => s.originDatum);
+  const machineId = useSimStore((s) => s.machineId);
+  const far = machineId === "sf260_5axis" ? 1.85 : 1;
 
   const cx = originDatum === "front_left" ? target.width / 2 : 0;
   const cz = originDatum === "front_left" ? -target.depth / 2 : 0;
@@ -595,34 +612,34 @@ function CameraController() {
   useEffect(() => {
     if (!preset) return;
     const cam = camera as THREE.PerspectiveCamera;
-    let pos: [number, number, number] = [cx + 230, 190, cz + 250];
+    let pos: [number, number, number] = [cx + 230 * far, 190 * far, cz + 250 * far];
     switch (preset) {
       case "iso":
-        pos = [cx + 230, 190, cz + 250];
+        pos = [cx + 230 * far, 190 * far, cz + 250 * far];
         break;
       case "top":
-        pos = [cx, 420, cz + 0.01];
+        pos = [cx, 420 * far, cz + 0.01];
         break;
       case "bottom":
-        pos = [cx, -350, cz + 0.01];
+        pos = [cx, -350 * far, cz + 0.01];
         break;
       case "front":
-        pos = [cx, 60, cz + 420];
+        pos = [cx, 90 * far, cz + 520 * far];
         break;
       case "right":
-        pos = [cx + 420, 60, cz];
+        pos = [cx + 480 * far, 90 * far, cz];
         break;
       case "reset":
-        pos = [cx + 230, 190, cz + 250];
+        pos = [cx + 230 * far, 190 * far, cz + 250 * far];
         break;
     }
     cam.position.set(pos[0], pos[1], pos[2]);
-    cam.lookAt(cx, 0, cz);
+    cam.lookAt(cx, target.height * 0.35, cz);
     if (controls) {
-      controls.target.set(cx, 0, cz);
+      controls.target.set(cx, target.height * 0.35, cz);
       controls.update();
     }
-  }, [preset, nonce, cx, cz]);
+  }, [preset, nonce, cx, cz, far, target.height]);
 
   return null;
 }
@@ -632,6 +649,8 @@ function SceneContents() {
   const workpiece = useSimStore((s) => s.workpiece);
   const originDatum = useSimStore((s) => s.originDatum);
   const showGrid = useViewStore((s) => s.showGrid);
+  const machineId = useSimStore((s) => s.machineId);
+  const isSf260 = machineId === "sf260_5axis";
 
   const cx = originDatum === "front_left" ? workpiece.width / 2 : 0;
   const cz = originDatum === "front_left" ? -workpiece.depth / 2 : 0;
@@ -664,10 +683,19 @@ function SceneContents() {
         <Lightformer intensity={1.2} position={[cx + 130, 70, cz - 90]} scale={[80, 130, 1]} color="#ffd9b3" />
       </Environment>
 
-      <MachineFrame />
-      <Workpiece />
-      <Toolpath />
-      <SpindleHead />
+      {isSf260 ? <Sf260Machine /> : <MachineFrame />}
+      {isSf260 ? (
+        <Sf260WorkRotaryGroup>
+          <Workpiece />
+          <Toolpath />
+        </Sf260WorkRotaryGroup>
+      ) : (
+        <>
+          <Workpiece />
+          <Toolpath />
+        </>
+      )}
+      {!isSf260 && <SpindleHead />}
       <ToolMarker />
 
       <ContactShadows
@@ -698,7 +726,7 @@ function SceneContents() {
         makeDefault
         target={[cx, 0, cz]}
         minDistance={10}
-        maxDistance={1000}
+        maxDistance={2800}
         minPolarAngle={0.01}
         maxPolarAngle={Math.PI * 0.98}
         enableDamping
@@ -714,12 +742,13 @@ export default function CncScene() {
     <Canvas
       shadows
       dpr={[1, 3]}
-      camera={{ position: [230, 190, 250], fov: 38, near: 1, far: 3000 }}
+      camera={{ position: [230, 190, 250], fov: 38, near: 1, far: 6000 }}
       gl={{ antialias: true, preserveDrawingBuffer: true }}
       style={{ width: "100%", height: "100%", background: "transparent" }}
     >
       <color attach="background" args={["#0b0d10"]} />
-      <fog attach="fog" args={["#0b0d10", 400, 820]} />
+      {/* 雾起点拉远，避免缩远看整机时被雾打成全黑 */}
+      <fog attach="fog" args={["#0b0d10", 1400, 3200]} />
       <SceneContents />
     </Canvas>
   );

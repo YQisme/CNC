@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   Route,
   Grid3x3,
@@ -12,12 +13,12 @@ import {
   ArrowUpDown,
   Wrench,
   Cpu,
-  Layers,
-  RotateCw,
+  Download,
 } from "lucide-react";
 import { useViewStore, type CameraPreset } from "@/lib/cnc/viewStore";
 import { useSimStore } from "@/lib/cnc/store";
 import { MACHINE_CATALOG, type MachineType } from "@/lib/cnc/machines";
+import { downloadMachineModel, type ExportFormat } from "@/lib/cnc/exportModel";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -71,6 +72,25 @@ export default function SceneOverlay() {
   const programName = useSimStore((s) => s.programName);
   const tool = useSimStore((s) => s.tool);
   const machineId = useSimStore((s) => s.machineId);
+  const [exporting, setExporting] = useState(false);
+  const [exportMsg, setExportMsg] = useState<string | null>(null);
+
+  const canExport = machineId === "sf260_5axis";
+
+  const onExport = async (format: ExportFormat) => {
+    if (!canExport || exporting) return;
+    setExporting(true);
+    setExportMsg(null);
+    try {
+      await downloadMachineModel(format, "SF-260H");
+      setExportMsg(format === "glb" ? "已下载 GLB" : "已下载 OBJ");
+    } catch (e) {
+      setExportMsg(e instanceof Error ? e.message : "导出失败");
+    } finally {
+      setExporting(false);
+      window.setTimeout(() => setExportMsg(null), 2800);
+    }
+  };
 
   return (
     <TooltipProvider delayDuration={200}>
@@ -104,6 +124,36 @@ export default function SceneOverlay() {
             T{tool || 0} 当前刀具
           </span>
         </div>
+
+        {canExport && (
+          <div className="pointer-events-auto flex flex-col gap-1 rounded-md border border-white/10 bg-black/70 p-1.5 backdrop-blur shadow-lg">
+            <div className="flex items-center gap-1.5 px-1 pb-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+              <Download className="h-3 w-3 text-cyan-400" />
+              导出模型
+            </div>
+            <div className="flex gap-1">
+              <button
+                type="button"
+                disabled={exporting}
+                onClick={() => onExport("glb")}
+                className="flex-1 rounded border border-cyan-500/40 bg-cyan-500/15 px-2 py-1 font-mono text-[10px] font-semibold text-cyan-100 hover:bg-cyan-500/25 disabled:opacity-50"
+              >
+                GLB
+              </button>
+              <button
+                type="button"
+                disabled={exporting}
+                onClick={() => onExport("obj")}
+                className="flex-1 rounded border border-white/15 bg-white/5 px-2 py-1 font-mono text-[10px] font-semibold text-slate-200 hover:bg-white/10 disabled:opacity-50"
+              >
+                OBJ
+              </button>
+            </div>
+            {exportMsg && (
+              <span className="px-1 text-[10px] text-emerald-300">{exportMsg}</span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* top-right: view toggles + camera presets */}
@@ -126,7 +176,7 @@ export default function SceneOverlay() {
           <ToggleBtn
             active={showEnclosure}
             onClick={() => toggle("showEnclosure")}
-            tooltip="显示/隐藏护罩（便于查看底部/侧面）"
+            tooltip={machineId === "sf260_5axis" ? "关闭/打开防护门（外形）" : "显示/隐藏护罩"}
           >
             <Box className="h-4 w-4" />
           </ToggleBtn>
