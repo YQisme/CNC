@@ -218,9 +218,10 @@ export const useSimStore = create<SimState>((set, get) => ({
       height: ex.workpiece.height,
     });
     // Auto-detect origin datum: if coordinates are mostly positive, default to front_left
+    // SF-260H 示例统一工件中心原点，避免与摇篮转台中心错位
     const parseRes = patch.parseResult as ParseResult | undefined;
     let datum: OriginDatum = "center";
-    if (parseRes && parseRes.bounds) {
+    if (!id.startsWith("sf260-") && parseRes && parseRes.bounds) {
       const { minX, minY } = parseRes.bounds;
       if (minX >= -5 && minY >= -5) {
         datum = "front_left";

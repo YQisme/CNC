@@ -26,6 +26,7 @@ import { getMaterialById } from "@/lib/cnc/materials";
 import type { Move } from "@/lib/cnc/types";
 import Sf260Machine, { Sf260WorkRotaryGroup } from "@/components/cnc/machines/Sf260Machine";
 import ExplodePart, { explodeAmounts } from "@/components/cnc/machines/ExplodePart";
+import ChipDebris from "@/components/cnc/ChipDebris";
 import { workpieceToWorld } from "@/lib/cnc/kinematics";
 
 const TOOL_FALLBACK: CncTool = {
@@ -344,19 +345,26 @@ function SpindleHead() {
   );
 }
 
-// ---------- Workpiece (carved) ----------
+// ---------- Workpiece (carved) + 毛坯幽灵 + 加工面着色 ----------
 function Workpiece() {
   const workpiece = useSimStore((s) => s.workpiece);
   const originDatum = useSimStore((s) => s.originDatum);
   const parseResult = useSimStore((s) => s.parseResult);
   const materialId = useSimStore((s) => s.materialId);
   const machineMode = useSimStore((s) => s.machineMode);
-  const N = 120; // high-resolution smooth surface (120x120 grid)
+  const N = 120;
 
   const top = useMemo<TopSurface>(
     () => createTopSurface(workpiece.width, workpiece.depth, N, originDatum),
     [workpiece.width, workpiece.depth, originDatum],
   );
+
+  // 顶点色：未切毛坯色 / 已加工光洁色
+  useEffect(() => {
+    const count = (N + 1) * (N + 1);
+    const colors = new Float32Array(count * 3);
+    top.geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+  }, [top, N]);
 
   const cumulative = useMemo(() => {
     if (!parseResult || parseResult.moves.length === 0) return null;
@@ -369,14 +377,30 @@ function Workpiece() {
     liveRef.current = new Float32Array((N + 1) * (N + 1));
   }
   const lastApplied = useRef<{ idx: number; t: number }>({ idx: -1, t: -1 });
+  const removedVolRef = useRef(0);
 
   const currentMoveIndex = useSimStore((s) => s.currentMoveIndex);
   const currentT = useSimStore((s) => s.currentT);
 
+  const mat = useMemo(() => getMaterialById(materialId), [materialId]);
+  const stockCol = useMemo(() => new THREE.Color(mat.color), [mat.color]);
+  const cutCol = useMemo(
+    () => new THREE.Color(mat.color).offsetHSL(0.02, 0.05, 0.18),
+    [mat.color],
+  );
+
   useEffect(() => {
     lastApplied.current = { idx: -1, t: -1 };
     top.reset();
-  }, [cumulative, top]);
+    removedVolRef.current = 0;
+    const attr = top.geometry.getAttribute("color") as THREE.BufferAttribute | undefined;
+    if (attr) {
+      for (let i = 0; i < attr.count; i++) {
+        attr.setXYZ(i, stockCol.r, stockCol.g, stockCol.b);
+      }
+      attr.needsUpdate = true;
+    }
+  }, [cumulative, top, stockCol]);
 
   useFrame(() => {
     if (!cumulative || !parseResult || parseResult.moves.length === 0) {
@@ -391,12 +415,38 @@ function Workpiece() {
       return;
     }
     lastApplied.current = { idx, t };
-    const base =
-      cumulative[idx] ?? cumulative[cumulative.length - 1];
+    const base = cumulative[idx] ?? cumulative[cumulative.length - 1];
     const live = liveRef.current!;
     const move: Move | undefined = parseResult.moves[idx];
     applyPartialCut(live, base, move, t, toolRadius, workpiece.width, workpiece.depth, N, originDatum);
     top.applyHeightmap(live);
+
+    const colorAttr = top.geometry.getAttribute("color") as THREE.BufferAttribute | undefined;
+    if (colorAttr) {
+      let cutCells = 0;
+      let depthSum = 0;
+      for (let i = 0; i < live.length; i++) {
+        const d = live[i];
+        if (d < -0.08) {
+          cutCells++;
+          depthSum += -d;
+          // 越深越亮：体现精加工面
+          const k = Math.min(1, -d / Math.max(2, workpiece.height * 0.6));
+          colorAttr.setXYZ(
+            i,
+            THREE.MathUtils.lerp(stockCol.r, cutCol.r, 0.45 + k * 0.55),
+            THREE.MathUtils.lerp(stockCol.g, cutCol.g, 0.45 + k * 0.55),
+            THREE.MathUtils.lerp(stockCol.b, cutCol.b, 0.45 + k * 0.55),
+          );
+        } else {
+          colorAttr.setXYZ(i, stockCol.r, stockCol.g, stockCol.b);
+        }
+      }
+      colorAttr.needsUpdate = true;
+      const cellArea = (workpiece.width / N) * (workpiece.depth / N);
+      removedVolRef.current = depthSum * cellArea;
+      void cutCells;
+    }
   });
 
   const bodyGeom = useMemo(
@@ -404,31 +454,44 @@ function Workpiece() {
     [workpiece.width, workpiece.height, workpiece.depth],
   );
 
-  const mat = useMemo(() => getMaterialById(materialId), [materialId]);
-
   const bodyMats = useMemo(() => {
     const side = new THREE.MeshStandardMaterial({
       color: mat.sideColor,
-      roughness: 0.45,
-      metalness: 0.7,
+      roughness: 0.48,
+      metalness: mat.metalness * 0.85,
     });
     const topHidden = new THREE.MeshStandardMaterial({ visible: false });
     const bottom = new THREE.MeshStandardMaterial({
       color: mat.sideColor,
-      roughness: 0.5,
-      metalness: 0.8,
+      roughness: 0.55,
+      metalness: mat.metalness * 0.9,
       side: THREE.DoubleSide,
     });
-    return [side, side, topHidden, bottom, side, side]; // px,nx,py,ny,pz,nz
-  }, [mat.sideColor]);
+    return [side, side, topHidden, bottom, side, side];
+  }, [mat.sideColor, mat.metalness]);
 
   const topMat = useMemo(
     () =>
       new THREE.MeshStandardMaterial({
-        color: mat.color,
-        roughness: 0.35,
-        metalness: 0.85,
+        color: "#ffffff",
+        vertexColors: true,
+        roughness: mat.roughness * 0.85,
+        metalness: mat.metalness,
         side: THREE.DoubleSide,
+      }),
+    [mat.roughness, mat.metalness],
+  );
+
+  const ghostMat = useMemo(
+    () =>
+      new THREE.MeshStandardMaterial({
+        color: mat.color,
+        transparent: true,
+        opacity: 0.12,
+        depthWrite: false,
+        roughness: 1,
+        metalness: 0,
+        wireframe: false,
       }),
     [mat.color],
   );
@@ -438,22 +501,52 @@ function Workpiece() {
       ? [workpiece.width / 2, -workpiece.height / 2, -workpiece.depth / 2]
       : [0, -workpiece.height / 2, 0];
 
+  const progress = useSimStore((s) => {
+    const moves = s.parseResult?.moves.length ?? 0;
+    if (moves === 0) return 0;
+    return (s.currentMoveIndex + s.currentT) / moves;
+  });
+  const finished = progress > 0.97 && machineMode === "run";
+
   return (
     <group>
+      {/* 原始毛坯幽灵轮廓 */}
+      <mesh geometry={bodyGeom} material={ghostMat} position={bodyPos}>
+        <Edges threshold={12} color="#94a3b8" />
+      </mesh>
+      {/* 实体毛坯（顶面由高度图替代） */}
       <mesh
         geometry={bodyGeom}
         material={bodyMats}
         position={bodyPos}
         castShadow
         receiveShadow
-      >
-        <Edges threshold={5} color="#a0aec0" />
-      </mesh>
+      />
+      {/* 加工顶面 = 成品表面 */}
       <mesh geometry={top.geometry} material={topMat} receiveShadow castShadow />
+      {/* 加工完成后轻微高亮成品 */}
+      {finished && (
+        <mesh position={bodyPos}>
+          <boxGeometry
+            args={[
+              workpiece.width + 1.5,
+              workpiece.height + 1.5,
+              workpiece.depth + 1.5,
+            ]}
+          />
+          <meshStandardMaterial
+            color="#22d3ee"
+            transparent
+            opacity={0.06}
+            depthWrite={false}
+            emissive="#22d3ee"
+            emissiveIntensity={0.35}
+          />
+        </mesh>
+      )}
     </group>
   );
 }
-
 // ---------- Machine frame (100% OPEN VIEW — NO SOLID WALLS) ----------
 function MachineFrame() {
   const workpiece = useSimStore((s) => s.workpiece);
@@ -504,16 +597,40 @@ function MachineFrame() {
         <boxGeometry args={[wOut, 20, dOut]} />
         <primitive object={baseMat} attach="material" />
       </mesh>
-      {/* T-slot machining bed table */}
-      <mesh position={[0, baseTopY - 6, 0]} receiveShadow castShadow>
-        <boxGeometry args={[Math.max(240, workpiece.width + 60), 12, Math.max(200, workpiece.depth + 60)]} />
+      {/* T 槽工作台：台面顶 = 毛坯底面 Y=-h */}
+      <mesh position={[0, baseTopY + 12, 0]} receiveShadow castShadow>
+        <boxGeometry
+          args={[
+            Math.max(240, workpiece.width + 80),
+            12,
+            Math.max(200, workpiece.depth + 80),
+          ]}
+        />
         <primitive object={tableMat} attach="material" />
       </mesh>
-      {[-90, -45, 0, 45, 90].map((x) => (
-        <mesh key={x} position={[x, baseTopY + 1, 0]}>
-          <boxGeometry args={[4, 2, Math.max(194, workpiece.depth + 50)]} />
-          <meshStandardMaterial color="#2b2f36" roughness={0.6} metalness={0.5} />
+      {[-100, -60, -20, 20, 60, 100].map((x) => (
+        <mesh key={x} position={[x, baseTopY + 18.2, 0]}>
+          <boxGeometry args={[5, 2.2, Math.max(190, workpiece.depth + 60)]} />
+          <meshStandardMaterial color="#1f2937" roughness={0.7} metalness={0.4} />
         </mesh>
+      ))}
+      {/* 简易压板 */}
+      {[
+        [-workpiece.width / 2 - 18, -workpiece.depth / 2 - 10],
+        [workpiece.width / 2 + 18, -workpiece.depth / 2 - 10],
+        [-workpiece.width / 2 - 18, workpiece.depth / 2 + 10],
+        [workpiece.width / 2 + 18, workpiece.depth / 2 + 10],
+      ].map(([px, pz], i) => (
+        <group key={i} position={[px, baseTopY + 22, pz]}>
+          <mesh castShadow>
+            <boxGeometry args={[16, 6, 12]} />
+            <meshStandardMaterial color="#374151" roughness={0.4} metalness={0.8} />
+          </mesh>
+          <mesh position={[0, 5, 0]}>
+            <cylinderGeometry args={[2, 2, 4, 10]} />
+            <meshStandardMaterial color="#94a3b8" roughness={0.3} metalness={0.9} />
+          </mesh>
+        </group>
       ))}
 
       {/* 4 SLIM CORNER STRUCTURAL POSTS (OPEN 360 VIEW) */}
@@ -738,12 +855,14 @@ function SceneContents() {
         <ExplodePart offset={[0, -25, 55]} amount={workExplodeAmt} name="Explode_Workzone">
           <Sf260WorkRotaryGroup>
             <Workpiece />
+            <ChipDebris tableTopY={-workpiece.height} />
             <Toolpath />
           </Sf260WorkRotaryGroup>
         </ExplodePart>
       ) : (
         <>
           <Workpiece />
+          <ChipDebris tableTopY={-workpiece.height} />
           <Toolpath />
         </>
       )}

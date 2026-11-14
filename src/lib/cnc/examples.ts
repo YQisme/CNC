@@ -1751,166 +1751,183 @@ M30
     id: "sf260-5axis-pose",
     name: "SF-260H 五轴姿态演示（A/C）",
     description:
-      "佳时特 SF-260H 摇篮式双转台演示：A 轴倾斜、C 轴回转与 3+2 定位铣削，配套华中风格 A/C 编程。",
+      "摇篮 A / 转台 C 空走姿态 + C 轴分度后顶面铣槽。切削仅在 A=0 进行（立式主轴仿真约定）。",
     difficulty: "高级",
     machine: "Mill",
-    workpiece: { width: 80, depth: 80, height: 20 },
-    code: `; SF-260H 五轴姿态演示 — 摇篮 A + 转台 C
-; 工件中心原点，顶面 Z0；先看转台姿态，再做定位面铣
+    workpiece: { width: 70, depth: 70, height: 20 },
+    code: `; SF-260H 五轴姿态演示
+; 约定：工件中心原点、顶面 Z0；立式主轴；切削只在 A=0
+; A 轴仅在安全高度做姿态展示，避免刀轴穿入倾斜毛坯
 G21 G90 G17
 G54
-T1 M06                   ; 立铣刀 Ø6
-M03 S8000
-G00 Z30                  ; 安全高度
+T1 M06
+M03 S6000
+G00 X0 Y0 Z50
 
-; --- 姿态展示：A/C 联动回转 ---
+; --- 1) 空走：A/C 姿态展示（刀在安全高）---
 G00 A0 C0
-G00 A25 C0               ; A 倾斜 25°
-G01 A25 C90 F2000        ; 保持 A，C 转到 90°
-G01 A-15 C180 F2000      ; A 反向倾斜，C 继续转
-G01 A0 C270 F2000
-G00 A0 C0                ; 回零姿态
+G01 A20 C0 F1500
+G01 A20 C90 F1500
+G01 A-15 C180 F1500
+G01 A0 C270 F1500
+G00 A0 C0
 
-; --- 3+2：C=45° 上铣小方槽 ---
-G00 Z25
-G00 A0 C45               ; 转台转到 45°
-G00 X-12 Y-12
+; --- 2) 3+2：仅 C 分度，A 回零后顶面铣方槽 ---
+G00 A0 C45
+G00 X-12 Y-12 Z20
 G00 Z2
-G01 Z-1.5 F200           ; 下刀
-G01 X12 F400
+G01 Z-1.5 F180
+G01 X12 F350
 G01 Y12
 G01 X-12
 G01 Y-12
-G00 Z25
+G00 Z20
 
-; --- 3+2：A=20° 倾斜后再转 C 铣第二面 ---
-G00 A20 C135
-G00 X-10 Y0
+; --- 3) 再分度铣一条槽 ---
+G00 A0 C135
+G00 X-14 Y0 Z20
 G00 Z2
-G01 Z-1 F180
-G01 X10 F350
-G00 Z25
+G01 Z-1 F160
+G01 X14 F300
+G00 Z50
 
-; --- 回零收刀 ---
 G00 A0 C0
-G00 X0 Y0 Z30
+G00 X0 Y0 Z50
 M05
 M30
 `,
   },
 
   /* ===================================================================== */
-  /* SF-260H — SampleCode 安全演示（B→A 映射，行程收束）                      */
-  /* 来源目录：SampleCode/；实机 RTCP/G68.2 等未仿真指令改为注释保留          */
+  /* SF-260H — SampleCode 改编（仿真合理版）                                 */
+  /* 立式主轴：回转空走可带 A；切削/钻孔必须 A=0；A 演示限 ±30°               */
   /* ===================================================================== */
   {
     id: "sf260-sample-ortcp-c",
-    name: "SF-260H Sample：C 轴 RTCP（ORTCP_C）",
+    name: "SF-260H Sample：C 轴回转（ORTCP_C）",
     description:
-      "改编自 SampleCode/ORTCP_C：C 轴 0→90→180→270→0 回转演示；原 G43.4 保留为注释，B/C 机型映射为仿真 A/C。",
+      "改编自 SampleCode/ORTCP_C：刀具停在工件上方安全高，C 轴整周回转，验证转台与刀位点跟随。",
     difficulty: "进阶",
     machine: "Mill",
-    workpiece: { width: 80, depth: 80, height: 20 },
-    code: `; 来源：SampleCode/ORTCP_C
-; 适配：SF-260H 仿真（仅 C 轴回转，安全高度收束）
+    workpiece: { width: 70, depth: 70, height: 20 },
+    code: `; 来源：SampleCode/ORTCP_C（仿真合理版）
+; 刀尖固定在 X0 Y0 Z45（工件坐标），只转 C — 类似 RTCP 下看转台
 G21 G90 G17
 G54
 T1 M06
-M03 S2000
-G00 X0 Y0 Z40
-; G43.4 H48          ; 实机 RTCP 开（仿真暂不执行）
-G00 C0
-G01 C90 F1000
-G01 C180 F1000
-G01 C270 F1000
-G01 C0 F1000
-; G49                ; 实机取消刀长/RTCP
-G00 Z40
+M03 S2500
+G00 X0 Y0 Z45
+G00 A0 C0
+; G43.4 H48
+G01 C90 F800
+G04 P0.4
+G01 C180 F800
+G04 P0.4
+G01 C270 F800
+G04 P0.4
+G01 C0 F800
+G00 Z50
 M05
 M30
 `,
   },
   {
     id: "sf260-sample-ortcp-a",
-    name: "SF-260H Sample：A 轴 RTCP（ORTCP_B）",
+    name: "SF-260H Sample：A 轴摆角（ORTCP_B）",
     description:
-      "改编自 SampleCode/ORTCP_B：原 B 轴摆角映射为仿真 A 轴（0→-20→0→20→90→0），用于摇篮倾斜演示。",
+      "改编自 SampleCode/ORTCP_B：B→A 映射；仅在安全高度小角度摆动（±25°），不做 90° 极端姿态。",
     difficulty: "进阶",
     machine: "Mill",
-    workpiece: { width: 80, depth: 80, height: 20 },
-    code: `; 来源：SampleCode/ORTCP_B
-; 适配：实机 B 轴 → 仿真 A 轴；去掉 MILL/G145 等华中专用字
+    workpiece: { width: 70, depth: 70, height: 20 },
+    code: `; 来源：SampleCode/ORTCP_B（仿真合理版）
+; 原样例含 B90，摇篮+立式主轴仿真中会穿模；改为 ±25° 空走
 G21 G90 G17
 G54
 T1 M06
-M03 S2000
-G00 X0 Y0 Z40
+M03 S2500
+G00 X0 Y0 Z50
+G00 A0 C0
 ; G43.4 H48
-; G145 Q1            ; 实机 RTCP 模式字（仿真忽略）
-G00 A0
-G01 A-20 F1000
-G01 A0 F1000
-G01 A20 F1000
-G01 A90 F1000
-G01 A0 F1000
-; G49
-G00 Z40
+G01 A-25 F600
+G04 P0.3
+G01 A0 F600
+G01 A25 F600
+G04 P0.3
+G01 A0 F600
+G00 Z50
 M05
 M30
 `,
   },
   {
     id: "sf260-sample-ortcp-ac",
-    name: "SF-260H Sample：A/C 联动 RTCP（ORTCP_BC）",
+    name: "SF-260H Sample：A/C 联动（ORTCP_BC）",
     description:
-      "改编自 SampleCode/ORTCP_BC：原 B/C 联动姿态序列映射为 A/C，验证摇篮+转台组合回转。",
+      "改编自 SampleCode/ORTCP_BC：A/C 组合空走；角度收束到摇篮合理范围，刀始终在安全高。",
     difficulty: "高级",
     machine: "Mill",
-    workpiece: { width: 80, depth: 80, height: 20 },
-    code: `; 来源：SampleCode/ORTCP_BC
-; 适配：B→A；姿态序列保持与原样例一致
+    workpiece: { width: 70, depth: 70, height: 20 },
+    code: `; 来源：SampleCode/ORTCP_BC（仿真合理版）
+; 原 B90/B120 改为 A±25° 量级，避免立式主轴相对大倾角毛坯穿模
 G21 G90 G17
 G54
 T1 M06
-M03 S2000
-G00 X0 Y0 Z40
-; G43.4 H48
+M03 S2500
+G00 X0 Y0 Z50
 G00 A0 C0
-G01 A90 C90 F1000      ; 原 C90 B90
-G01 A120 C0 F1000      ; 原 C0 B120
-G01 A90 C-90 F1000     ; 原 C-90 B90
-G01 A0 C0 F1000
-; G49
-G00 Z40
+; G43.4 H48
+G01 A25 C90 F700
+G04 P0.35
+G01 A-20 C180 F700
+G04 P0.35
+G01 A25 C270 F700
+G04 P0.35
+G01 A0 C0 F700
+G00 Z50
 M05
 M30
 `,
   },
   {
     id: "sf260-sample-3plus2-drill",
-    name: "SF-260H Sample：3+2 钻孔（G81 G17）",
+    name: "SF-260H Sample：3+2 分度钻孔",
     description:
-      "改编自 SampleCode/G81 G17：保留 A 倾斜 + G81 三点钻孔结构；行程缩至 80×80×20 工件安全范围，去掉超行程与乱码注释。",
+      "改编自 SampleCode/G81 G17：先空走展示 A 倾角，A 回零后用 C 分度 + G81 顶面钻孔（立式主轴可仿真）。",
     difficulty: "高级",
     machine: "Mill",
-    workpiece: { width: 80, depth: 80, height: 20 },
-    code: `; 来源：SampleCode/G81 G17
-; 适配：原 B45/X300/Z-35 等缩到 SF-260H 安全包络；B→A
+    workpiece: { width: 70, depth: 70, height: 20 },
+    code: `; 来源：SampleCode/G81 G17（仿真合理版）
+; 实机 3+2 需 G68.2+G53.1 后在倾斜坐标系钻孔；
+; 本仿真主轴固定竖直，故：A 只做展示 → A=0 后 C 分度钻孔
 G21 G90 G17
 G54
-T3 M06                   ; 钻头 Ø3
-M03 S3000
-G00 X0 Y0 Z40
-G00 A20 C0               ; 原 B45，演示用 20° 倾斜
-; G43.4 H50
-; G68.2 X0 Y0 Z0 I90 J-45 K-90 P0
-; G53.1                  ; 实机刀具法向对齐（仿真暂注释）
-G00 Z10
-G98 G81 X0 Y0 Z-8 R2 F200
-X15
-Y15
+T3 M06
+M03 S3500
+G00 X0 Y0 Z50
+
+; --- 姿态展示（不切削）---
+G00 A20 C0
+G04 P0.5
+G00 A0 C0
+
+; --- C=0 顶面钻孔 ---
+G00 A0 C0
+G00 X-12 Y-12 Z20
+G98 G81 Z-6 R2 F180
+X12
+Y12
+X-12
 G80
-G00 Z40
+G00 Z30
+
+; --- C=90° 分度后再钻一组 ---
+G00 A0 C90
+G00 X-10 Y0 Z20
+G98 G81 Z-5 R2 F160
+X10
+G80
+
+G00 Z50
 G00 A0 C0
 G00 X0 Y0
 M05
