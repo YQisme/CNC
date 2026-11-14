@@ -1,9 +1,12 @@
-<!-- BEGIN:nextjs-agent-rules -->
+# Agent notes — CNC Simulator Pro
 
-## This is NOT the Next.js you know
+This project is a **Vue 3 + Vite + Element Plus + TresJS + Pinia** SPA.
 
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
-
-This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
-
-<!-- END:nextjs-agent-rules -->
+- Package manager: **Yarn**
+- Dev: `yarn dev` (http://localhost:3000)
+- Build: `yarn build` → static files in `dist/`
+- Path alias: `@/` → `src/`
+- Simulation state: `src/stores/sim.ts`
+- View/camera state: `src/stores/view.ts`
+- Pure G-code / carve logic: `src/lib/cnc/`
+- 3D scene: `src/components/cnc/CncScene.vue` + TresJS (`@tresjs/core`, `@tresjs/cientos`)

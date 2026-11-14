@@ -5,7 +5,7 @@
 import * as THREE from "three";
 import { sampleMove } from "./parser";
 import type { Move, OriginDatum } from "./types";
-import type { Workpiece } from "./store";
+import type { Workpiece } from "./types";
 import { getToolByNumber, toolRadius } from "./tools";
 
 export type ToolRadiusFn = (toolNumber: number) => number;

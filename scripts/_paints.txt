@@ -1,0 +1,197 @@
+function paintWave(g: CanvasRenderingContext2D, w: number, h: number) {
+  g.clearRect(0, 0, w, h);
+  const N = 72;
+  const mid: { x: number; y: number; hw: number }[] = [];
+  for (let i = 0; i <= N; i++) {
+    const t = i / N;
+    const y = h * (0.015 + t * 0.97);
+    const s = Math.sin(t * Math.PI * 1.55 - 0.45);
+    const taper = Math.sin(Math.PI * t);
+    mid.push({
+      x: w * 0.48 + s * w * 0.26,
+      y,
+      hw: 10 + taper * 22,
+    });
+  }
+  const drawRibbon = (shift: number, scale: number, color: string) => {
+    const left: { x: number; y: number }[] = [];
+    const right: { x: number; y: number }[] = [];
+    for (let i = 0; i <= N; i++) {
+      const p = mid[i];
+      const prev = mid[Math.max(0, i - 1)];
+      const next = mid[Math.min(N, i + 1)];
+      let tx = next.x - prev.x;
+      let ty = next.y - prev.y;
+      const len = Math.hypot(tx, ty) || 1;
+      tx /= len;
+      ty /= len;
+      const hw = p.hw * scale;
+      left.push({ x: p.x + shift - ty * hw, y: p.y + tx * hw });
+      right.push({ x: p.x + shift + ty * hw * 0.72, y: p.y - tx * hw * 0.72 });
+    }
+    g.beginPath();
+    g.moveTo(left[0].x, left[0].y);
+    for (const p of left) g.lineTo(p.x, p.y);
+    for (let i = right.length - 1; i >= 0; i--) g.lineTo(right[i].x, right[i].y);
+    g.closePath();
+    g.fillStyle = color;
+    g.fill();
+  };
+  drawRibbon(0, 1, "#f6c400");
+  drawRibbon(18, 0.42, "#ffe08a");
+}
+
+/** 观察窗上的小黄警示贴 */
+function paintSticker(g: CanvasRenderingContext2D, w: number, h: number) {
+  g.fillStyle = "#f6c400";
+  g.fillRect(0, 0, w, h);
+  g.strokeStyle = "#1a1a1a";
+  g.lineWidth = 12;
+  g.strokeRect(8, 8, w - 16, h - 16);
+  g.beginPath();
+  g.moveTo(w * 0.5, 36);
+  g.lineTo(w * 0.8, 150);
+  g.lineTo(w * 0.2, 150);
+  g.closePath();
+  g.lineWidth = 8;
+  g.stroke();
+  g.fillStyle = "#1a1a1a";
+  g.fillRect(w * 0.5 - 6, 72, 12, 46);
+  g.beginPath();
+  g.arc(w * 0.5, 132, 7, 0, Math.PI * 2);
+  g.fill();
+  g.fillRect(28, 176, w - 56, 10);
+  g.fillRect(28, 198, w - 80, 8);
+  g.fillRect(28, 216, w - 64, 8);
+  g.font = "bold 26px sans-serif";
+  g.fillText("CAUTION", 36, h - 28);
+}
+
+/** 操作台屏幕：华中风格坐标页示意 */
+function paintScreen(g: CanvasRenderingContext2D, w: number, h: number) {
+  g.fillStyle = "#07111c";
+  g.fillRect(0, 0, w, h);
+  g.fillStyle = "#12345a";
+  g.fillRect(0, 0, w, 36);
+  g.fillStyle = "#e8f4ff";
+  g.font = "bold 18px sans-serif";
+  g.fillText("SF-260H", 14, 24);
+  g.font = "14px sans-serif";
+  g.fillStyle = "#8ec8ef";
+  g.fillText("HNC-848D", 150, 24);
+  g.fillStyle = "#22c55e";
+  g.beginPath();
+  g.arc(w - 22, 18, 6, 0, Math.PI * 2);
+  g.fill();
+
+  const rows: [string, string, string][] = [
+    ["X", "0.000", "mm"],
+    ["Y", "0.000", "mm"],
+    ["Z", "120.000", "mm"],
+    ["A", "0.000", "deg"],
+    ["C", "0.000", "deg"],
+  ];
+  rows.forEach((row, i) => {
+    const y = 58 + i * 36;
+    g.fillStyle = i % 2 === 0 ? "#0c1c30" : "#0a1728";
+    g.fillRect(10, y - 22, w - 20, 32);
+    g.fillStyle = "#67e8f9";
+    g.font = "bold 18px monospace";
+    g.fillText(row[0], 22, y);
+    g.fillStyle = "#f1f5f9";
+    g.font = "18px monospace";
+    g.fillText(row[1], 150, y);
+    g.fillStyle = "#64748b";
+    g.font = "12px sans-serif";
+    g.fillText(row[2], w - 58, y);
+  });
+
+  g.fillStyle = "#0ea5e9";
+  g.fillRect(10, h - 42, 86, 30);
+  g.fillStyle = "#062033";
+  g.font = "bold 14px sans-serif";
+  g.fillText("AUTO", 32, h - 22);
+  g.fillStyle = "#1e293b";
+  g.fillRect(106, h - 42, 70, 30);
+  g.fillStyle = "#94a3b8";
+  g.fillText("MDI", 124, h - 22);
+  g.fillStyle = "#14532d";
+  g.fillRect(w - 96, h - 42, 84, 30);
+  g.fillStyle = "#bbf7d0";
+  g.fillText("READY", w - 82, h - 22);
+}
+
+/** JUST 方标 */
+function paintLogo(g: CanvasRenderingContext2D, w: number, h: number) {
+  g.clearRect(0, 0, w, h);
+  g.fillStyle = "#1c2430";
+  g.beginPath();
+  g.roundRect(6, 6, w - 12, h - 12, 16);
+  g.fill();
+  g.strokeStyle = "#f5c400";
+  g.lineWidth = 14;
+  g.lineCap = "round";
+  g.lineJoin = "round";
+  g.beginPath();
+  g.moveTo(46, 40);
+  g.lineTo(46, 78);
+  g.quadraticCurveTo(46, 104, 74, 104);
+  g.lineTo(96, 104);
+  g.stroke();
+  g.strokeStyle = "#f8fafc";
+  g.lineWidth = 10;
+  g.beginPath();
+  g.moveTo(78, 40);
+  g.lineTo(100, 40);
+  g.lineTo(100, 62);
+  g.stroke();
+}
+
+/** 正面左立面竖排型号：逐字正立、自上而下（S 在上），透明底贴钣金 */
+function paintModelPlate(g: CanvasRenderingContext2D, w: number, h: number) {
+  g.clearRect(0, 0, w, h);
+  g.fillStyle = "#3a4452";
+  g.font = `bold ${Math.floor(w * 0.72)}px "Arial", "Helvetica Neue", sans-serif`;
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  const chars = ["S", "F", "-", "2", "6", "0", "H"];
+  const step = h / (chars.length + 0.35);
+  chars.forEach((ch, i) => {
+    g.fillText(ch, w * 0.5, step * (i + 0.7));
+  });
+}
+
+/** 竖排公司名小字 */
+function paintCorpPlate(g: CanvasRenderingContext2D, w: number, h: number) {
+  g.clearRect(0, 0, w, h);
+  g.fillStyle = "#4b5568";
+  g.font = `${Math.floor(w * 0.2)}px "Arial", "Helvetica Neue", sans-serif`;
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  const lines = ["JIANGSU JUST", "NUMERICAL CONTROL", "TECHNOLOGY", "CO., LTD."];
+  const step = h / (lines.length + 0.4);
+  lines.forEach((line, i) => {
+    g.fillText(line, w * 0.5, step * (i + 0.75));
+  });
+}
+
+/** 门下灰条型号（横排白字） */
+function paintStripLabel(g: CanvasRenderingContext2D, w: number, h: number) {
+  g.clearRect(0, 0, w, h);
+  g.fillStyle = "#f8fafc";
+  g.font = `bold ${Math.floor(h * 0.55)}px "Arial", "Helvetica Neue", sans-serif`;
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  g.fillText("SF-260H", w * 0.5, h * 0.52);
+}
+
+/** 左侧黄标横排型号（深色字） */
+function paintSideTagLabel(g: CanvasRenderingContext2D, w: number, h: number) {
+  g.clearRect(0, 0, w, h);
+  g.fillStyle = "#1f2937";
+  g.font = `bold ${Math.floor(h * 0.55)}px "Arial", "Helvetica Neue", sans-serif`;
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  g.fillText("SF-260H", w * 0.5, h * 0.52);
+}
+

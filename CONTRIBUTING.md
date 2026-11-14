@@ -16,12 +16,10 @@ git clone https://github.com/<YOUR_USERNAME>/cnc.git
 cd cnc
 
 # 2. 安装依赖
-bun install
-# 或：npm install
+yarn install
 
 # 3. 启动开发服务器
-bun run dev    # → http://localhost:3000
-# 或：npm run dev
+yarn dev    # → http://localhost:3000
 
 # 4. 创建分支
 git checkout -b fix/my-improvement
@@ -85,8 +83,7 @@ git checkout -b fix/my-improvement
 2. **进行修改。** 保持提交聚焦，并写出清晰的提交说明。
 3. **本地测试：**
    ```bash
-   bun run lint     # 必须通过
-   bun run build    # 必须成功（静态导出）
+   yarn build    # 必须成功（输出 dist/）
    ```
 4. **推送**并针对 `main` 发起 Pull Request。
 5. 关联相关 Issue（例如 `Closes #123`）。
@@ -103,12 +100,12 @@ git checkout -b fix/my-improvement
 
 | 路径 | 用途 |
 |------|------|
-| `src/lib/cnc/` | 核心仿真引擎 — 解析器、切削、状态、刀具、材料 |
-| `src/components/cnc/` | UI 组件 — 3D 场景、编辑器、控制栏、面板 |
-| `src/components/ui/` | shadcn/ui 基础组件 |
-| `src/app/` | Next.js App Router 页面与布局 |
+| `src/lib/cnc/` | 核心仿真引擎 — 解析器、切削、刀具、材料 |
+| `src/stores/` | Pinia 仿真 / 视图状态 |
+| `src/components/cnc/` | UI 与 3D — 场景、编辑器、控制栏、面板 |
+| `src/App.vue` | 应用壳层 |
 | `public/` | 静态资源、favicon、OG 图片 |
-| `.github/workflows/` | CI 构建检查 + GitHub Pages 部署 |
+| `.github/workflows/` | GitHub Pages 部署 |
 
 > ℹ️ 核心机制（解析器、切削引擎、状态、刀具、材料）**稳定且经过充分测试**。修改这些文件时，优先做增量改动，避免大规模重写。
 
@@ -117,8 +114,7 @@ git checkout -b fix/my-improvement
 ## 🏷️ Pull Request 检查清单
 
 - [ ] 分支已与 `main` 同步
-- [ ] `bun run lint` 通过
-- [ ] `bun run build` 成功
+- [ ] `yarn build` 成功
 - [ ] 代码遵循现有风格
 - [ ] 提交说明清晰
 - [ ] PR 描述说明了**做了什么**以及**为什么**

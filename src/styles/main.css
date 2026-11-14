@@ -1,0 +1,70 @@
+@import "tailwindcss";
+
+:root {
+  --cnc-bg: #0b0d10;
+  --cnc-panel: #0d0f13;
+  --cnc-panel-2: #15181d;
+  --cnc-border: rgba(255, 255, 255, 0.1);
+  --cnc-cyan: #22d3ee;
+  --cnc-text: #e2e8f0;
+  --cnc-muted: #64748b;
+  color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  margin: 0;
+  height: 100%;
+  width: 100%;
+  background: var(--cnc-bg);
+  color: var(--cnc-text);
+  font-family:
+    "Segoe UI",
+    system-ui,
+    -apple-system,
+    sans-serif;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+.cnc-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.25) transparent;
+}
+
+.cnc-scroll::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.cnc-scroll::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.25);
+  border-radius: 999px;
+}
+
+.cnc-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(34, 211, 238, 0.45);
+}
+
+.el-overlay,
+.el-popper,
+.el-select-dropdown,
+.el-dropdown-menu {
+  --el-bg-color-overlay: #15181d;
+}
+
+kbd {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}

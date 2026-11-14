@@ -13,7 +13,7 @@ export interface ToolState {
   spindle: number; // RPM (absolute); direction tracked separately
   spindleOn: boolean;
   spindleDir: 1 | -1; // M03 = 1 (CW), M04 = -1 (CCW)
-  coolant: "off" | "flood" | "mist";
+  coolant: "off" | "flood" | "mist" | "air";
 }
 
 export interface Move {
@@ -79,6 +79,14 @@ export interface ParseError {
 }
 
 export type OriginDatum = "front_left" | "center";
+
+export interface Workpiece {
+  width: number; // X mm
+  depth: number; // Y mm
+  height: number; // Z mm
+}
+
+export type MachineMode = "run" | "dry_run" | "machine_lock";
 
 export interface ParseResult {
   ok: boolean;
