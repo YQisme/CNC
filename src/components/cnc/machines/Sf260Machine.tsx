@@ -9,7 +9,7 @@
  */
 
 import { useFrame } from "@react-three/fiber";
-import { Edges, Text } from "@react-three/drei";
+import { Edges } from "@react-three/drei";
 import { useCallback, useEffect, useMemo, useRef, type ReactNode } from "react";
 import * as THREE from "three";
 import { useSimStore } from "@/lib/cnc/store";
@@ -19,6 +19,8 @@ import { workpieceToWorld } from "@/lib/cnc/kinematics";
 import { setMachineExportRoot } from "@/lib/cnc/exportModel";
 import Sf260Exterior from "@/components/cnc/machines/Sf260Exterior";
 import ExplodePart, { explodeAmounts } from "@/components/cnc/machines/ExplodePart";
+import Sf260Trunnion from "@/components/cnc/machines/Sf260Trunnion";
+import ToolGeometry from "@/components/cnc/ToolGeometry";
 
 const TOOL_FALLBACK: CncTool = {
   number: 1,
@@ -45,52 +47,6 @@ function useMetal(color: string, rough = 0.35, metal = 0.9) {
         metalness: metal,
       }),
     [color, rough, metal],
-  );
-}
-
-function ToolGeometry({
-  tool,
-  toolLen,
-  mat,
-}: {
-  tool: CncTool;
-  toolLen: number;
-  mat: THREE.Material;
-}) {
-  const r = tool.diameter / 2;
-  if (tool.type === "face_mill") {
-    return (
-      <group>
-        <mesh position={[0, toolLen * 0.55, 0]} castShadow>
-          <cylinderGeometry args={[tool.shankDiameter / 2, tool.shankDiameter / 2, toolLen * 0.45, 16]} />
-          <primitive object={mat} attach="material" />
-        </mesh>
-        <mesh position={[0, toolLen * 0.18, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
-          <cylinderGeometry args={[r * 1.4, r * 1.4, 4, 32]} />
-          <meshStandardMaterial color="#4b5563" roughness={0.45} metalness={0.7} />
-        </mesh>
-        <mesh position={[0, toolLen * 0.18, 0]} rotation={[0, 0, Math.PI / 2]}>
-          <torusGeometry args={[r * 1.15, 1.2, 10, 36]} />
-          <meshStandardMaterial color="#94a3b8" roughness={0.3} metalness={0.85} />
-        </mesh>
-      </group>
-    );
-  }
-  return (
-    <group>
-      <mesh position={[0, toolLen * 0.7, 0]} castShadow>
-        <cylinderGeometry args={[tool.shankDiameter / 2, tool.shankDiameter / 2, toolLen * 0.6, 16]} />
-        <primitive object={mat} attach="material" />
-      </mesh>
-      <mesh position={[0, toolLen * 0.25, 0]} castShadow>
-        <cylinderGeometry args={[r + 0.2, r, toolLen * 0.5, 16]} />
-        <primitive object={mat} attach="material" />
-      </mesh>
-      <mesh position={[0, 0.1, 0]}>
-        <cylinderGeometry args={[r, r, 0.4, 16]} />
-        <primitive object={mat} attach="material" />
-      </mesh>
-    </group>
   );
 }
 
@@ -121,193 +77,6 @@ export function Sf260WorkRotaryGroup({ children }: { children: ReactNode }) {
   );
 }
 
-/** 摇篮式 A/C 双转台 — 台面顶对齐毛坯底面 (tableTopY = -stockHeight) */
-function TrunnionTable({
-  cx,
-  cz,
-  tableTopY,
-  tableMat,
-  cradleMat,
-  accentMat,
-}: {
-  cx: number;
-  cz: number;
-  tableTopY: number;
-  tableMat: THREE.Material;
-  cradleMat: THREE.Material;
-  accentMat: THREE.Material;
-}) {
-  const aRef = useRef<THREE.Group>(null);
-  const cRef = useRef<THREE.Group>(null);
-  const fixtureMat = useMemo(
-    () =>
-      new THREE.MeshStandardMaterial({
-        color: "#6b7280",
-        roughness: 0.42,
-        metalness: 0.72,
-      }),
-    [],
-  );
-  const slotMat = useMemo(
-    () =>
-      new THREE.MeshStandardMaterial({
-        color: "#1f2937",
-        roughness: 0.7,
-        metalness: 0.45,
-      }),
-    [],
-  );
-  const clampMat = useMemo(
-    () =>
-      new THREE.MeshStandardMaterial({
-        color: "#374151",
-        roughness: 0.35,
-        metalness: 0.85,
-      }),
-    [],
-  );
-
-  useFrame(() => {
-    const { a, c } = useSimStore.getState().rotary;
-    if (aRef.current) aRef.current.rotation.x = THREE.MathUtils.degToRad(a);
-    if (cRef.current) cRef.current.rotation.y = THREE.MathUtils.degToRad(c);
-  });
-
-  // 台面厚度；C 组局部 Y=0 = 台面顶 = tableTopY
-  const plateH = 14;
-  const cradleY = tableTopY - 28;
-  const pivotY = tableTopY - 8;
-
-  return (
-    <group position={[cx, 0, cz]}>
-      {/* A 轴摇篮支座 */}
-      {([-1, 1] as const).map((side) => (
-        <group key={side} position={[side * 78, cradleY, 0]}>
-          <mesh castShadow receiveShadow>
-            <boxGeometry args={[20, 56, 72]} />
-            <primitive object={cradleMat} attach="material" />
-          </mesh>
-          <mesh position={[side * -6, 18, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
-            <cylinderGeometry args={[14, 14, 12, 28]} />
-            <primitive object={tableMat} attach="material" />
-          </mesh>
-          <mesh position={[side * -8, 18, 0]} rotation={[0, 0, Math.PI / 2]}>
-            <cylinderGeometry args={[6, 6, 8, 16]} />
-            <primitive object={accentMat} attach="material" />
-          </mesh>
-          <mesh position={[0, -32, 0]} castShadow>
-            <boxGeometry args={[26, 10, 80]} />
-            <primitive object={cradleMat} attach="material" />
-          </mesh>
-        </group>
-      ))}
-
-      <group ref={aRef} position={[0, pivotY, 0]}>
-        {/* 摇篮横梁 */}
-        <mesh position={[0, -6, 0]} castShadow receiveShadow>
-          <boxGeometry args={[128, 16, 54]} />
-          <primitive object={cradleMat} attach="material" />
-        </mesh>
-        <mesh position={[0, -6, 22]} castShadow>
-          <boxGeometry args={[110, 8, 8]} />
-          <primitive object={tableMat} attach="material" />
-        </mesh>
-        <mesh position={[0, -6, -22]} castShadow>
-          <boxGeometry args={[110, 8, 8]} />
-          <primitive object={tableMat} attach="material" />
-        </mesh>
-
-        <group ref={cRef} position={[0, tableTopY - pivotY, 0]}>
-          {/* C 转台底座：Ø~140，可托住 70×70 毛坯 */}
-          <mesh position={[0, -plateH - 5, 0]} castShadow receiveShadow>
-            <cylinderGeometry args={[68, 72, 10, 48]} />
-            <primitive object={tableMat} attach="material" />
-          </mesh>
-          {/* T 槽夹具台面 */}
-          <mesh position={[0, -plateH / 2, 0]} castShadow receiveShadow>
-            <cylinderGeometry args={[64, 64, plateH, 48]} />
-            <primitive object={fixtureMat} attach="material" />
-          </mesh>
-          {/* 径向 T 槽 */}
-          {Array.from({ length: 8 }).map((_, i) => {
-            const ang = (i / 8) * Math.PI * 2;
-            return (
-              <group key={i} rotation={[0, ang, 0]}>
-                <mesh position={[28, 0.2, 0]} receiveShadow>
-                  <boxGeometry args={[48, 2.2, 5]} />
-                  <primitive object={slotMat} attach="material" />
-                </mesh>
-                <mesh position={[28, -1.2, 0]}>
-                  <boxGeometry args={[48, 1.6, 8]} />
-                  <primitive object={slotMat} attach="material" />
-                </mesh>
-              </group>
-            );
-          })}
-          {/* 圆周刻度 */}
-          <mesh position={[0, 0.35, 0]}>
-            <torusGeometry args={[61, 0.45, 8, 64]} />
-            <primitive object={accentMat} attach="material" />
-          </mesh>
-          {[0, 45, 90, 135, 180, 225, 270, 315].map((deg) => {
-            const ang = THREE.MathUtils.degToRad(deg);
-            return (
-              <mesh
-                key={deg}
-                position={[Math.cos(ang) * 58, 0.5, Math.sin(ang) * 58]}
-                rotation={[0, -ang, 0]}
-              >
-                <boxGeometry args={[deg % 90 === 0 ? 5 : 2.5, 0.8, 1.2]} />
-                <meshStandardMaterial color="#e2e8f0" roughness={0.4} metalness={0.55} />
-              </mesh>
-            );
-          })}
-          {/* 压板：放在毛坯外侧（70×70 半宽 35），避免穿入工件 */}
-          {[
-            { x: -48, z: -42 },
-            { x: 48, z: -42 },
-            { x: -48, z: 42 },
-            { x: 48, z: 42 },
-          ].map((p, i) => (
-            <group key={i} position={[p.x, 0, p.z]}>
-              <mesh position={[0, 3.2, 0]} castShadow>
-                <boxGeometry args={[12, 6.4, 9]} />
-                <primitive object={clampMat} attach="material" />
-              </mesh>
-              <mesh position={[0, 7.2, 0]} castShadow>
-                <cylinderGeometry args={[2, 2, 3.5, 12]} />
-                <meshStandardMaterial color="#94a3b8" roughness={0.3} metalness={0.9} />
-              </mesh>
-              <mesh position={[i % 2 === 0 ? 7 : -7, 1.1, 0]} castShadow>
-                <boxGeometry args={[14, 2.2, 7]} />
-                <primitive object={clampMat} attach="material" />
-              </mesh>
-            </group>
-          ))}
-          {/* 排屑环槽 */}
-          <mesh position={[0, -1, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-            <torusGeometry args={[65, 1.8, 10, 48]} />
-            <meshStandardMaterial color="#111827" roughness={0.85} metalness={0.3} />
-          </mesh>
-          <Text
-            position={[0, 1.2, 0]}
-            rotation={[-Math.PI / 2, 0, 0]}
-            fontSize={3.2}
-            color="#94a3b8"
-            anchorX="center"
-            anchorY="middle"
-          >
-            C-AXIS
-          </Text>
-        </group>
-      </group>
-
-      <Text position={[-78, cradleY + 36, 0]} fontSize={3.2} color="#60a5fa" anchorX="center">
-        A
-      </Text>
-    </group>
-  );
-}
 export default function Sf260Machine() {
   const workpiece = useSimStore((s) => s.workpiece);
   const originDatum = useSimStore((s) => s.originDatum);
@@ -519,7 +288,7 @@ export default function Sf260Machine() {
       </group>
 
       <ExplodePart offset={[0, -25, 55]} amount={internalAmt} name="Explode_Trunnion">
-        <TrunnionTable
+        <Sf260Trunnion
           cx={cx}
           cz={cz}
           tableTopY={-h}
@@ -600,10 +369,6 @@ export default function Sf260Machine() {
                 </mesh>
                 <group ref={toolRef}>
                   <ToolGeometry tool={toolDef} toolLen={toolLen} mat={toolMat} />
-                  <mesh position={[0, toolLen + 2, 0]}>
-                    <torusGeometry args={[5, 0.6, 8, 24]} />
-                    <meshStandardMaterial color="#38bdf8" emissive="#38bdf8" emissiveIntensity={0.7} />
-                  </mesh>
                 </group>
                 {coolant !== "off" && (
                   <mesh position={[8, 6, 8]} userData={{ skipExport: true }}>

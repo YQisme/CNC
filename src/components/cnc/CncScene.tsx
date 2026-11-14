@@ -27,6 +27,7 @@ import type { Move } from "@/lib/cnc/types";
 import Sf260Machine, { Sf260WorkRotaryGroup } from "@/components/cnc/machines/Sf260Machine";
 import ExplodePart, { explodeAmounts } from "@/components/cnc/machines/ExplodePart";
 import ChipDebris from "@/components/cnc/ChipDebris";
+import ToolGeometry from "@/components/cnc/ToolGeometry";
 import { workpieceToWorld } from "@/lib/cnc/kinematics";
 
 const TOOL_FALLBACK: CncTool = {
@@ -96,120 +97,6 @@ function Toolpath() {
       )}
     </group>
   );
-}
-
-// ---------- Tool geometry (renders per tool type) ----------
-function ToolGeometry({ tool, toolLen, mat }: { tool: CncTool; toolLen: number; mat: THREE.Material }) {
-  const r = tool.diameter / 2;
-  switch (tool.type) {
-    case "end_mill":
-      return (
-        <group>
-          {/* shank */}
-          <mesh position={[0, toolLen * 0.7, 0]} castShadow>
-            <cylinderGeometry args={[tool.shankDiameter / 2, tool.shankDiameter / 2, toolLen * 0.6, 16]} />
-            <primitive object={mat} attach="material" />
-          </mesh>
-          {/* flutes (slightly tapered) */}
-          <mesh position={[0, toolLen * 0.25, 0]} castShadow>
-            <cylinderGeometry args={[r + 0.2, r, toolLen * 0.5, 16]} />
-            <primitive object={mat} attach="material" />
-          </mesh>
-          {/* flat tip */}
-          <mesh position={[0, 0.1, 0]}>
-            <cylinderGeometry args={[r, r, 0.4, 16]} />
-            <primitive object={mat} attach="material" />
-          </mesh>
-        </group>
-      );
-    case "ball_nose":
-      return (
-        <group>
-          <mesh position={[0, toolLen * 0.6, 0]} castShadow>
-            <cylinderGeometry args={[tool.shankDiameter / 2, tool.shankDiameter / 2, toolLen * 0.6, 16]} />
-            <primitive object={mat} attach="material" />
-          </mesh>
-          <mesh position={[0, toolLen * 0.25, 0]} castShadow>
-            <cylinderGeometry args={[r, r, toolLen * 0.5, 16]} />
-            <primitive object={mat} attach="material" />
-          </mesh>
-          {/* ball tip */}
-          <mesh position={[0, 0, 0]} castShadow>
-            <sphereGeometry args={[r, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2]} />
-            <primitive object={mat} attach="material" />
-          </mesh>
-        </group>
-      );
-    case "drill":
-    case "reamer":
-      return (
-        <group>
-          <mesh position={[0, toolLen * 0.6, 0]} castShadow>
-            <cylinderGeometry args={[tool.shankDiameter / 2, tool.shankDiameter / 2, toolLen * 0.5, 16]} />
-            <primitive object={mat} attach="material" />
-          </mesh>
-          <mesh position={[0, toolLen * 0.25, 0]} castShadow>
-            <cylinderGeometry args={[r, r, toolLen * 0.55, 16]} />
-            <primitive object={mat} attach="material" />
-          </mesh>
-          {/* pointed tip */}
-          <mesh position={[0, 0.5, 0]} castShadow>
-            <coneGeometry args={[r, r * 1.6, 16]} />
-            <primitive object={mat} attach="material" />
-          </mesh>
-        </group>
-      );
-    case "chamfer":
-    case "spot_drill":
-      return (
-        <group>
-          <mesh position={[0, toolLen * 0.65, 0]} castShadow>
-            <cylinderGeometry args={[tool.shankDiameter / 2, tool.shankDiameter / 2, toolLen * 0.5, 16]} />
-            <primitive object={mat} attach="material" />
-          </mesh>
-          {/* 90° chamfer body */}
-          <mesh position={[0, toolLen * 0.2, 0]} castShadow>
-            <cylinderGeometry args={[r, 1, toolLen * 0.4, 16]} />
-            <primitive object={mat} attach="material" />
-          </mesh>
-          <mesh position={[0, 0.5, 0]} castShadow>
-            <coneGeometry args={[r, r * 1.5, 16]} />
-            <primitive object={mat} attach="material" />
-          </mesh>
-        </group>
-      );
-    case "face_mill":
-      return (
-        <group>
-          <mesh position={[0, toolLen * 0.6, 0]} castShadow>
-            <cylinderGeometry args={[tool.shankDiameter / 2, tool.shankDiameter / 2, toolLen * 0.6, 16]} />
-            <primitive object={mat} attach="material" />
-          </mesh>
-          {/* big body */}
-          <mesh position={[0, toolLen * 0.2, 0]} castShadow>
-            <cylinderGeometry args={[r, r, toolLen * 0.3, 24]} />
-            <primitive object={mat} attach="material" />
-          </mesh>
-          {/* insert cutters (5) */}
-          {[0, 1, 2, 3, 4].map((i) => {
-            const a = (i / 5) * Math.PI * 2;
-            return (
-              <mesh key={i} position={[Math.cos(a) * r * 0.8, 0.1, Math.sin(a) * r * 0.8]} castShadow>
-                <boxGeometry args={[3, 1, 2]} />
-                <meshStandardMaterial color="#cbd5e1" roughness={0.2} metalness={0.95} />
-              </mesh>
-            );
-          })}
-        </group>
-      );
-    default:
-      return (
-        <mesh position={[0, toolLen / 2, 0]} castShadow>
-          <cylinderGeometry args={[r, r, toolLen, 16]} />
-          <primitive object={mat} attach="material" />
-        </mesh>
-      );
-  }
 }
 
 // ---------- Spindle head (gantry, moving) ----------
@@ -317,14 +204,6 @@ function SpindleHead() {
           </mesh>
           <group ref={toolRef}>
             <ToolGeometry tool={toolDef} toolLen={toolLen} mat={toolMat} />
-            <mesh position={[0, toolLen + 2, 0]}>
-              <torusGeometry args={[5, 0.6, 8, 24]} />
-              <meshStandardMaterial
-                color="#22d3ee"
-                emissive="#22d3ee"
-                emissiveIntensity={0.7}
-              />
-            </mesh>
           </group>
           {/* coolant stream */}
           {coolant !== "off" && (
@@ -681,39 +560,6 @@ function MachineFrame() {
   );
 }
 
-// ---------- tool tip marker ----------
-function ToolMarker() {
-  const isCutting = useSimStore((s) => s.isCutting);
-  const machineId = useSimStore((s) => s.machineId);
-  const workpiece = useSimStore((s) => s.workpiece);
-  const originDatum = useSimStore((s) => s.originDatum);
-  const ref = useRef<THREE.Mesh>(null);
-  const tmp = useRef(new THREE.Vector3());
-  useFrame(() => {
-    if (!ref.current) return;
-    const { position: pos, rotary } = useSimStore.getState();
-    if (machineId === "sf260_5axis") {
-      const cx = originDatum === "front_left" ? workpiece.width / 2 : 0;
-      const cy = originDatum === "front_left" ? workpiece.depth / 2 : 0;
-      const cz = originDatum === "front_left" ? -workpiece.depth / 2 : 0;
-      workpieceToWorld({ x: pos.x - cx, y: pos.y - cy, z: pos.z }, rotary, tmp.current);
-      ref.current.position.set(tmp.current.x + cx, tmp.current.y, tmp.current.z + cz);
-    } else {
-      ref.current.position.set(pos.x, pos.z, -pos.y);
-    }
-  });
-  return (
-    <mesh ref={ref}>
-      <sphereGeometry args={[isCutting ? 3.5 : 2.5, 16, 16]} />
-      <meshStandardMaterial
-        color={isCutting ? "#f43f5e" : "#22d3ee"}
-        emissive={isCutting ? "#f43f5e" : "#22d3ee"}
-        emissiveIntensity={0.9}
-      />
-    </mesh>
-  );
-}
-
 // ---------- camera preset controller ----------
 function CameraController() {
   const { camera, controls } = useThree() as { camera: THREE.Camera; controls: { target: THREE.Vector3; update: () => void } | null };
@@ -867,7 +713,6 @@ function SceneContents() {
         </>
       )}
       {!isSf260 && <SpindleHead />}
-      <ToolMarker />
 
       <ContactShadows
         position={[cx, -workpiece.height - 12, cz]}
