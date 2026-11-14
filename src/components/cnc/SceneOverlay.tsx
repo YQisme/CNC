@@ -8,6 +8,7 @@ import {
   Eye,
   EyeOff,
   DoorOpen,
+  Bomb,
   RefreshCw,
   Maximize2,
   Camera,
@@ -23,6 +24,7 @@ import { useSimStore } from "@/lib/cnc/store";
 import { MACHINE_CATALOG, type MachineType } from "@/lib/cnc/machines";
 import { downloadMachineModel, type ExportFormat } from "@/lib/cnc/exportModel";
 import { cn } from "@/lib/utils";
+import { Slider } from "@/components/ui/slider";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 function ToggleBtn({
@@ -71,7 +73,9 @@ export default function SceneOverlay() {
   const showGrid = useViewStore((s) => s.showGrid);
   const showShell = useViewStore((s) => s.showShell);
   const showEnclosure = useViewStore((s) => s.showEnclosure);
+  const explodeAmount = useViewStore((s) => s.explodeAmount);
   const toggle = useViewStore((s) => s.toggle);
+  const setExplodeAmount = useViewStore((s) => s.setExplodeAmount);
   const setCameraPreset = useViewStore((s) => s.setCameraPreset);
   const programName = useSimStore((s) => s.programName);
   const tool = useSimStore((s) => s.tool);
@@ -237,6 +241,42 @@ export default function SceneOverlay() {
           <Maximize2 className="inline h-3 w-3" /> 拖动 360° · 滚轮缩放
         </span>
       </div>
+
+      {/* bottom-right: horizontal explode slider */}
+      {machineId === "sf260_5axis" && (
+        <div
+          className={cn(
+            "pointer-events-auto absolute bottom-3 right-3 z-10 flex w-56 items-center gap-2 rounded-md border px-2.5 py-2 backdrop-blur",
+            explodeAmount > 0.01
+              ? "border-cyan-400/50 bg-cyan-500/15"
+              : "border-white/10 bg-black/60",
+          )}
+          title={
+            showShell
+              ? "爆炸视图：0–50% 外壳，50–100% 全部展开"
+              : "爆炸视图：拖动展开内部龙门与加工区"
+          }
+        >
+          <Bomb
+            className={cn(
+              "h-3.5 w-3.5 shrink-0",
+              explodeAmount > 0.01 ? "text-cyan-200" : "text-slate-400",
+            )}
+          />
+          <span className="shrink-0 font-mono text-[10px] text-slate-400">爆炸</span>
+          <Slider
+            min={0}
+            max={100}
+            step={1}
+            value={[Math.round(explodeAmount * 100)]}
+            onValueChange={(v) => setExplodeAmount(v[0] / 100)}
+            className="flex-1"
+          />
+          <span className="w-7 shrink-0 text-right font-mono text-[10px] tabular-nums text-slate-300">
+            {Math.round(explodeAmount * 100)}
+          </span>
+        </div>
+      )}
     </TooltipProvider>
   );
 }

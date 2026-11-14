@@ -18,6 +18,7 @@ import { getToolByNumber, type CncTool } from "@/lib/cnc/tools";
 import { workpieceToWorld } from "@/lib/cnc/kinematics";
 import { setMachineExportRoot } from "@/lib/cnc/exportModel";
 import Sf260Exterior from "@/components/cnc/machines/Sf260Exterior";
+import ExplodePart, { explodeAmounts } from "@/components/cnc/machines/ExplodePart";
 
 const TOOL_FALLBACK: CncTool = {
   number: 1,
@@ -221,6 +222,8 @@ export default function Sf260Machine() {
   const coolant = useSimStore((s) => s.coolant);
   const toolNum = useSimStore((s) => s.tool);
   const showShell = useViewStore((s) => s.showShell);
+  const explodeAmount = useViewStore((s) => s.explodeAmount);
+  const { internal: internalAmt } = explodeAmounts(explodeAmount, showShell);
 
   const cx = originDatum === "front_left" ? workpiece.width / 2 : 0;
   const cy = originDatum === "front_left" ? workpiece.depth / 2 : 0;
@@ -332,183 +335,197 @@ export default function Sf260Machine() {
 
       {/* 内部结构：力封闭床身 + 立柱 */}
       <group position={[cx, 0, cz]} name="SF260_Structure">
-        <mesh position={[0, baseTopY - 36, 0]} receiveShadow castShadow name="Bed">
-          <boxGeometry args={[wOut + 40, 28, dOut + 30]} />
-          <primitive object={castMat} attach="material" />
-        </mesh>
-        <mesh position={[0, baseTopY - 16, 0]} receiveShadow castShadow>
-          <boxGeometry args={[wOut, 18, dOut]} />
-          <primitive object={darkMat} attach="material" />
-        </mesh>
-        <mesh position={[-wOut / 2 + 30, baseTopY + 20, 0]} castShadow>
-          <boxGeometry args={[28, 70, dOut - 40]} />
-          <primitive object={castMat} attach="material" />
-        </mesh>
-        <mesh position={[wOut / 2 - 30, baseTopY + 20, 0]} castShadow>
-          <boxGeometry args={[28, 70, dOut - 40]} />
-          <primitive object={castMat} attach="material" />
-        </mesh>
-
-        {([-1, 1] as const).map((side) => (
-          <group key={side} position={[(wOut / 2 - 28) * side, 70, -20]}>
-            <mesh castShadow receiveShadow>
-              <boxGeometry args={[42, 230, 78]} />
-              <primitive object={panelMat} attach="material" />
-            </mesh>
-            <mesh position={[side * -12, 0, 22]}>
-              <boxGeometry args={[8, 210, 8]} />
-              <primitive object={blueMat} attach="material" />
-            </mesh>
-            {/* 直线导轨罩 */}
-            <mesh position={[side * -18, 10, 38]} castShadow>
-              <boxGeometry args={[10, 160, 16]} />
-              <primitive object={darkMat} attach="material" />
-            </mesh>
-            <Edges threshold={18} color="#94a3b8" />
-          </group>
-        ))}
-
-        <mesh position={[0, 178, -20]} castShadow name="Crossbeam_Fixed">
-          <boxGeometry args={[wOut - 40, 32, 78]} />
-          <primitive object={panelMat} attach="material" />
-        </mesh>
-        <mesh position={[0, 168, 12]}>
-          <boxGeometry args={[wOut - 80, 6, 6]} />
-          <primitive object={railMat} attach="material" />
-        </mesh>
-        <mesh position={[0, 162, 12]}>
-          <boxGeometry args={[wOut - 80, 3, 10]} />
-          <primitive object={darkMat} attach="material" />
-        </mesh>
-
-        {/* 侧置刀库 */}
-        <group position={[-wOut / 2 - 6, 55, -40]} name="Tool_Magazine">
-          <mesh castShadow>
-            <cylinderGeometry args={[32, 32, 22, 28]} />
-            <primitive object={darkMat} attach="material" />
-          </mesh>
-          <mesh position={[0, 14, 0]}>
-            <cylinderGeometry args={[30, 30, 4, 28]} />
-            <primitive object={panelMat} attach="material" />
-          </mesh>
-          {Array.from({ length: 12 }).map((_, i) => {
-            const a = (i / 12) * Math.PI * 2;
-            return (
-              <group key={i} position={[Math.cos(a) * 22, 12, Math.sin(a) * 22]}>
-                <mesh castShadow>
-                  <cylinderGeometry args={[3.2, 3.2, 18, 10]} />
-                  <meshStandardMaterial color="#cbd5e1" roughness={0.3} metalness={0.9} />
-                </mesh>
-                <mesh position={[0, 10, 0]}>
-                  <cylinderGeometry args={[4, 4, 3, 10]} />
-                  <primitive object={blueMat} attach="material" />
-                </mesh>
-              </group>
-            );
-          })}
-        </group>
-      </group>
-
-      <TrunnionTable
-        cx={cx}
-        cz={cz}
-        tableMat={tableMat}
-        cradleMat={cradleMat}
-        accentMat={accentMat}
-      />
-
-      {/* XYZ 龙门主轴 */}
-      <group ref={ySaddleRef} position={[cx, bridgeY, cz]} name="Y_Saddle">
-        <mesh castShadow>
-          <boxGeometry args={[260, 26, 42]} />
-          <primitive object={panelMat} attach="material" />
-        </mesh>
-        <mesh position={[0, -16, 0]}>
-          <boxGeometry args={[240, 5, 5]} />
-          <primitive object={railMat} attach="material" />
-        </mesh>
-        <mesh position={[0, -16, 12]}>
-          <boxGeometry args={[240, 4, 4]} />
-          <primitive object={railMat} attach="material" />
-        </mesh>
-        <mesh position={[-110, 4, 24]} castShadow>
-          <boxGeometry args={[44, 20, 16]} />
-          <primitive object={blueMat} attach="material" />
-        </mesh>
-        <mesh position={[110, 4, 24]} castShadow>
-          <boxGeometry args={[44, 20, 16]} />
-          <primitive object={blueMat} attach="material" />
-        </mesh>
-        {/* 光栅尺外壳 */}
-        <mesh position={[0, 14, -22]} castShadow>
-          <boxGeometry args={[200, 8, 8]} />
-          <primitive object={darkMat} attach="material" />
-        </mesh>
-
-        <group ref={xCarriageRef} name="X_Carriage">
-          <mesh position={[0, 6, 0]} castShadow>
-            <boxGeometry args={[58, 38, 48]} />
-            <primitive object={darkMat} attach="material" />
-          </mesh>
-          {/* 电主轴精细壳体 */}
-          <mesh position={[0, 30, 0]} castShadow>
-            <cylinderGeometry args={[19, 19, 32, 32]} />
-            <primitive object={darkMat} attach="material" />
-          </mesh>
-          <mesh position={[0, 50, 0]} castShadow>
-            <cylinderGeometry args={[13, 15, 12, 28]} />
+        <ExplodePart offset={[0, -35, 0]} amount={internalAmt} name="Explode_Bed">
+          <mesh position={[0, baseTopY - 36, 0]} receiveShadow castShadow name="Bed">
+            <boxGeometry args={[wOut + 40, 28, dOut + 30]} />
             <primitive object={castMat} attach="material" />
           </mesh>
-          <mesh position={[0, 58, 0]}>
-            <cylinderGeometry args={[8, 10, 6, 20]} />
+          <mesh position={[0, baseTopY - 16, 0]} receiveShadow castShadow>
+            <boxGeometry args={[wOut, 18, dOut]} />
+            <primitive object={darkMat} attach="material" />
+          </mesh>
+          <mesh position={[-wOut / 2 + 30, baseTopY + 20, 0]} castShadow>
+            <boxGeometry args={[28, 70, dOut - 40]} />
+            <primitive object={castMat} attach="material" />
+          </mesh>
+          <mesh position={[wOut / 2 - 30, baseTopY + 20, 0]} castShadow>
+            <boxGeometry args={[28, 70, dOut - 40]} />
+            <primitive object={castMat} attach="material" />
+          </mesh>
+        </ExplodePart>
+
+        {([-1, 1] as const).map((side) => (
+          <ExplodePart
+            key={side}
+            offset={[side * 70, 10, -15]}
+            amount={internalAmt}
+            name={side < 0 ? "Explode_Column_L" : "Explode_Column_R"}
+          >
+            <group position={[(wOut / 2 - 28) * side, 70, -20]}>
+              <mesh castShadow receiveShadow>
+                <boxGeometry args={[42, 230, 78]} />
+                <primitive object={panelMat} attach="material" />
+              </mesh>
+              <mesh position={[side * -12, 0, 22]}>
+                <boxGeometry args={[8, 210, 8]} />
+                <primitive object={blueMat} attach="material" />
+              </mesh>
+              <mesh position={[side * -18, 10, 38]} castShadow>
+                <boxGeometry args={[10, 160, 16]} />
+                <primitive object={darkMat} attach="material" />
+              </mesh>
+              <Edges threshold={18} color="#94a3b8" />
+            </group>
+          </ExplodePart>
+        ))}
+
+        <ExplodePart offset={[0, 55, -20]} amount={internalAmt} name="Explode_Crossbeam">
+          <mesh position={[0, 178, -20]} castShadow name="Crossbeam_Fixed">
+            <boxGeometry args={[wOut - 40, 32, 78]} />
+            <primitive object={panelMat} attach="material" />
+          </mesh>
+          <mesh position={[0, 168, 12]}>
+            <boxGeometry args={[wOut - 80, 6, 6]} />
             <primitive object={railMat} attach="material" />
           </mesh>
-          <mesh position={[0, 36, 0]}>
-            <torusGeometry args={[20, 1.8, 8, 32]} />
-            <primitive object={accentMat} attach="material" />
+          <mesh position={[0, 162, 12]}>
+            <boxGeometry args={[wOut - 80, 3, 10]} />
+            <primitive object={darkMat} attach="material" />
           </mesh>
-          {/* 冷却管路 */}
-          <mesh position={[14, 28, 14]} castShadow>
-            <cylinderGeometry args={[1.5, 1.5, 36, 8]} />
-            <meshStandardMaterial color="#67e8f9" roughness={0.3} metalness={0.6} />
-          </mesh>
-          <mesh position={[-14, 28, 14]} castShadow>
-            <cylinderGeometry args={[1.5, 1.5, 36, 8]} />
-            <meshStandardMaterial color="#67e8f9" roughness={0.3} metalness={0.6} />
-          </mesh>
+        </ExplodePart>
 
-          <mesh ref={quillRef} position={[0, -10, 0]} castShadow name="Quill">
-            <cylinderGeometry args={[8.5, 8.5, 1, 24]} />
-            <primitive object={quillMat} attach="material" />
-          </mesh>
-
-          <group ref={toolAssemblyRef} position={[0, -20, 0]} name="Tool_Assembly">
-            <mesh position={[0, toolLen, 0]}>
-              <coneGeometry args={[9, 11, 16]} />
-              <primitive object={quillMat} attach="material" />
+        <ExplodePart offset={[-95, 15, -35]} amount={internalAmt} name="Explode_Magazine">
+          <group position={[-wOut / 2 - 6, 55, -40]} name="Tool_Magazine">
+            <mesh castShadow>
+              <cylinderGeometry args={[32, 32, 22, 28]} />
+              <primitive object={darkMat} attach="material" />
             </mesh>
-            <group ref={toolRef}>
-              <ToolGeometry tool={toolDef} toolLen={toolLen} mat={toolMat} />
-              <mesh position={[0, toolLen + 2, 0]}>
-                <torusGeometry args={[5, 0.6, 8, 24]} />
-                <meshStandardMaterial color="#38bdf8" emissive="#38bdf8" emissiveIntensity={0.7} />
-              </mesh>
-            </group>
-            {coolant !== "off" && (
-              <mesh position={[8, 6, 8]} userData={{ skipExport: true }}>
-                <cylinderGeometry args={[0.4, 0.2, 16, 8]} />
-                <meshStandardMaterial
-                  color="#7dd3fc"
-                  transparent
-                  opacity={0.6}
-                  emissive="#0ea5e9"
-                  emissiveIntensity={0.3}
-                />
-              </mesh>
-            )}
+            <mesh position={[0, 14, 0]}>
+              <cylinderGeometry args={[30, 30, 4, 28]} />
+              <primitive object={panelMat} attach="material" />
+            </mesh>
+            {Array.from({ length: 12 }).map((_, i) => {
+              const a = (i / 12) * Math.PI * 2;
+              return (
+                <group key={i} position={[Math.cos(a) * 22, 12, Math.sin(a) * 22]}>
+                  <mesh castShadow>
+                    <cylinderGeometry args={[3.2, 3.2, 18, 10]} />
+                    <meshStandardMaterial color="#cbd5e1" roughness={0.3} metalness={0.9} />
+                  </mesh>
+                  <mesh position={[0, 10, 0]}>
+                    <cylinderGeometry args={[4, 4, 3, 10]} />
+                    <primitive object={blueMat} attach="material" />
+                  </mesh>
+                </group>
+              );
+            })}
           </group>
-        </group>
+        </ExplodePart>
       </group>
+
+      <ExplodePart offset={[0, -25, 55]} amount={internalAmt} name="Explode_Trunnion">
+        <TrunnionTable
+          cx={cx}
+          cz={cz}
+          tableMat={tableMat}
+          cradleMat={cradleMat}
+          accentMat={accentMat}
+        />
+      </ExplodePart>
+
+      {/* XYZ 龙门主轴：爆炸父级不干扰运动学对 ySaddle / xCarriage 的写入 */}
+      <ExplodePart offset={[0, 65, 40]} amount={internalAmt} name="Explode_Gantry">
+        <group ref={ySaddleRef} position={[cx, bridgeY, cz]} name="Y_Saddle">
+          <mesh castShadow>
+            <boxGeometry args={[260, 26, 42]} />
+            <primitive object={panelMat} attach="material" />
+          </mesh>
+          <mesh position={[0, -16, 0]}>
+            <boxGeometry args={[240, 5, 5]} />
+            <primitive object={railMat} attach="material" />
+          </mesh>
+          <mesh position={[0, -16, 12]}>
+            <boxGeometry args={[240, 4, 4]} />
+            <primitive object={railMat} attach="material" />
+          </mesh>
+          <mesh position={[-110, 4, 24]} castShadow>
+            <boxGeometry args={[44, 20, 16]} />
+            <primitive object={blueMat} attach="material" />
+          </mesh>
+          <mesh position={[110, 4, 24]} castShadow>
+            <boxGeometry args={[44, 20, 16]} />
+            <primitive object={blueMat} attach="material" />
+          </mesh>
+          <mesh position={[0, 14, -22]} castShadow>
+            <boxGeometry args={[200, 8, 8]} />
+            <primitive object={darkMat} attach="material" />
+          </mesh>
+
+          <ExplodePart offset={[0, 25, 35]} amount={internalAmt} name="Explode_Carriage">
+            <group ref={xCarriageRef} name="X_Carriage">
+              <mesh position={[0, 6, 0]} castShadow>
+                <boxGeometry args={[58, 38, 48]} />
+                <primitive object={darkMat} attach="material" />
+              </mesh>
+              <mesh position={[0, 30, 0]} castShadow>
+                <cylinderGeometry args={[19, 19, 32, 32]} />
+                <primitive object={darkMat} attach="material" />
+              </mesh>
+              <mesh position={[0, 50, 0]} castShadow>
+                <cylinderGeometry args={[13, 15, 12, 28]} />
+                <primitive object={castMat} attach="material" />
+              </mesh>
+              <mesh position={[0, 58, 0]}>
+                <cylinderGeometry args={[8, 10, 6, 20]} />
+                <primitive object={railMat} attach="material" />
+              </mesh>
+              <mesh position={[0, 36, 0]}>
+                <torusGeometry args={[20, 1.8, 8, 32]} />
+                <primitive object={accentMat} attach="material" />
+              </mesh>
+              <mesh position={[14, 28, 14]} castShadow>
+                <cylinderGeometry args={[1.5, 1.5, 36, 8]} />
+                <meshStandardMaterial color="#67e8f9" roughness={0.3} metalness={0.6} />
+              </mesh>
+              <mesh position={[-14, 28, 14]} castShadow>
+                <cylinderGeometry args={[1.5, 1.5, 36, 8]} />
+                <meshStandardMaterial color="#67e8f9" roughness={0.3} metalness={0.6} />
+              </mesh>
+
+              <mesh ref={quillRef} position={[0, -10, 0]} castShadow name="Quill">
+                <cylinderGeometry args={[8.5, 8.5, 1, 24]} />
+                <primitive object={quillMat} attach="material" />
+              </mesh>
+
+              <group ref={toolAssemblyRef} position={[0, -20, 0]} name="Tool_Assembly">
+                <mesh position={[0, toolLen, 0]}>
+                  <coneGeometry args={[9, 11, 16]} />
+                  <primitive object={quillMat} attach="material" />
+                </mesh>
+                <group ref={toolRef}>
+                  <ToolGeometry tool={toolDef} toolLen={toolLen} mat={toolMat} />
+                  <mesh position={[0, toolLen + 2, 0]}>
+                    <torusGeometry args={[5, 0.6, 8, 24]} />
+                    <meshStandardMaterial color="#38bdf8" emissive="#38bdf8" emissiveIntensity={0.7} />
+                  </mesh>
+                </group>
+                {coolant !== "off" && (
+                  <mesh position={[8, 6, 8]} userData={{ skipExport: true }}>
+                    <cylinderGeometry args={[0.4, 0.2, 16, 8]} />
+                    <meshStandardMaterial
+                      color="#7dd3fc"
+                      transparent
+                      opacity={0.6}
+                      emissive="#0ea5e9"
+                      emissiveIntensity={0.3}
+                    />
+                  </mesh>
+                )}
+              </group>
+            </group>
+          </ExplodePart>
+        </group>
+      </ExplodePart>
     </group>
   );
 }

@@ -16,6 +16,7 @@ import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useSimStore } from "@/lib/cnc/store";
 import { useViewStore } from "@/lib/cnc/viewStore";
+import ExplodePart, { explodeAmounts } from "@/components/cnc/machines/ExplodePart";
 
 type GhostMat = THREE.Material & {
   opacity: number;
@@ -419,11 +420,14 @@ export default function Sf260Exterior({
   baseTopY: number;
 }) {
   const showEnclosure = useViewStore((s) => s.showEnclosure);
+  const explodeAmount = useViewStore((s) => s.explodeAmount);
   const playing = useSimStore((s) => s.playing);
   const rootRef = useRef<THREE.Group>(null);
   const doorRef = useRef<THREE.Group>(null);
   const openAmt = useRef(showEnclosure ? 0 : 1);
   const ghostAmt = useRef(playing ? 1 : 0);
+  // 外壳仅在 showShell 时挂载；滑轨前半段控制钣金展开
+  const shellAmt = explodeAmounts(explodeAmount, true).shell;
 
   const waveTex = useMemo(() => canvasTexture(256, 1024, paintWave), []);
   const stickerTex = useMemo(() => canvasTexture(256, 320, paintSticker), []);
@@ -842,180 +846,194 @@ export default function Sf260Exterior({
   return (
     <group ref={rootRef} position={[cx, 0, cz]} name="SF260_Exterior">
       {/* —— 裙边 + 调平脚 —— */}
-      <Panel
-        size={[W - R * 2 + 4, 36, skin]}
-        at={[0, y0 + 18, zFace - skin / 2]}
-        mat={mats.sheetAlt}
-        name="Skirt_Front"
-        shadow
-      />
-      <Panel
-        size={[W - R * 2 + 4, 36, skin]}
-        at={[0, y0 + 18, -zFace + skin / 2]}
-        mat={mats.sheetAlt}
-        name="Skirt_Rear"
-      />
-      <Panel
-        size={[skin, 36, D - R]}
-        at={[-halfW + skin / 2, y0 + 18, -R / 2]}
-        mat={mats.sheetAlt}
-        name="Skirt_Left"
-        shadow
-      />
-      <Panel
-        size={[skin, 36, D - R]}
-        at={[halfW - skin / 2, y0 + 18, -R / 2]}
-        mat={mats.sheetAlt}
-        name="Skirt_Right"
-      />
-      {/* 前立边圆角，下段跟裙边同色 */}
-      {([-1, 1] as const).map((side) => (
-        <group key={side}>
-          <mesh position={[side * (halfW - R), y0 + 18, halfD - R]} material={mats.sheetAlt}>
-            <cylinderGeometry args={[R, R, 36, 20]} />
-          </mesh>
-          <mesh
-            position={[side * (halfW - R), yUpper, halfD - R]}
-            material={mats.sheet}
-            castShadow
-            name={side < 0 ? "Corner_FL" : "Corner_FR"}
-          >
-            <cylinderGeometry args={[R - 0.05, R - 0.05, upperH, 22]} />
-          </mesh>
-          <mesh position={[side * (halfW - R), seamY, halfD - R]} material={mats.seamDark}>
-            <cylinderGeometry args={[R + 0.35, R + 0.35, 2, 20]} />
-          </mesh>
-        </group>
-      ))}
-      {footAt.map(([x, z], i) => (
-        <LevelFoot key={i} at={[x, y0, z]} metal={mats.stainless} rubber={mats.rubber} />
-      ))}
-      <Studs points={frontBolts} mat={mats.bolt} axis="z" />
-      <Studs points={sideBolts} mat={mats.bolt} axis="x" />
-
-      {/* —— 上柜钣金 —— */}
-      <Panel
-        size={[W, upperH, skin]}
-        at={[0, yUpper, -halfD + skin / 2]}
-        mat={mats.sheet}
-        name="Rear"
-        shadow
-      />
-      <Panel
-        size={[skin, upperH, D - R]}
-        at={[-halfW + skin / 2, yUpper, -R / 2]}
-        mat={mats.sheet}
-        name="Left"
-        shadow
-      />
-      <Panel
-        size={[skin, upperH, D - R]}
-        at={[halfW - skin / 2, yUpper, -R / 2]}
-        mat={mats.sheet}
-        name="Right"
-        shadow
-      />
-      {/* 裙边接缝 */}
-      <Panel size={[W - 8, 2.1, 2.2]} at={[0, seamY, zFace + 0.4]} mat={mats.seam} name="Seam_Front" />
-      <Panel size={[2.2, 2.1, D - 24]} at={[-halfW - 0.5, seamY, 0]} mat={mats.seam} name="Seam_Left" />
-      <Panel size={[W + 14, 8, D + 14]} at={[0, yTop + 4, 0]} mat={mats.sheet} name="Roof" shadow />
-      <mesh
-        position={[0, yTop + 6.2, halfD + 3]}
-        rotation={[0, 0, Math.PI / 2]}
-        material={mats.sheet}
-        name="Roof_Lip"
-      >
-        <cylinderGeometry args={[4.2, 4.2, W - 16, 18]} />
-      </mesh>
-
-      {/* 后部散热狭缝，绕到背面才看得到 */}
-      <group name="Rear_Vent">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <mesh key={i} position={[-36 + (i % 3) * 22, yTop - 48 - Math.floor(i / 3) * 12, -halfD - 0.8]} material={mats.frame}>
-            <boxGeometry args={[14, 3, 1.4]} />
-          </mesh>
+      <ExplodePart offset={[0, -48, 0]} amount={shellAmt} name="Explode_Skirt">
+        <Panel
+          size={[W - R * 2 + 4, 36, skin]}
+          at={[0, y0 + 18, zFace - skin / 2]}
+          mat={mats.sheetAlt}
+          name="Skirt_Front"
+          shadow
+        />
+        <Panel
+          size={[W - R * 2 + 4, 36, skin]}
+          at={[0, y0 + 18, -zFace + skin / 2]}
+          mat={mats.sheetAlt}
+          name="Skirt_Rear"
+        />
+        <Panel
+          size={[skin, 36, D - R]}
+          at={[-halfW + skin / 2, y0 + 18, -R / 2]}
+          mat={mats.sheetAlt}
+          name="Skirt_Left"
+          shadow
+        />
+        <Panel
+          size={[skin, 36, D - R]}
+          at={[halfW - skin / 2, y0 + 18, -R / 2]}
+          mat={mats.sheetAlt}
+          name="Skirt_Right"
+        />
+        {([-1, 1] as const).map((side) => (
+          <group key={side}>
+            <mesh position={[side * (halfW - R), y0 + 18, halfD - R]} material={mats.sheetAlt}>
+              <cylinderGeometry args={[R, R, 36, 20]} />
+            </mesh>
+            <mesh position={[side * (halfW - R), seamY, halfD - R]} material={mats.seamDark}>
+              <cylinderGeometry args={[R + 0.35, R + 0.35, 2, 20]} />
+            </mesh>
+          </group>
         ))}
-      </group>
+        {footAt.map(([x, z], i) => (
+          <LevelFoot key={i} at={[x, y0, z]} metal={mats.stainless} rubber={mats.rubber} />
+        ))}
+        <Studs points={frontBolts} mat={mats.bolt} axis="z" />
+        <Studs points={sideBolts} mat={mats.bolt} axis="x" />
+        <Panel size={[W - 8, 2.1, 2.2]} at={[0, seamY, zFace + 0.4]} mat={mats.seam} name="Seam_Front" />
+        <Panel size={[2.2, 2.1, D - 24]} at={[-halfW - 0.5, seamY, 0]} mat={mats.seam} name="Seam_Left" />
+      </ExplodePart>
+
+      <ExplodePart offset={[0, 20, -95]} amount={shellAmt} name="Explode_Rear">
+        <Panel
+          size={[W, upperH, skin]}
+          at={[0, yUpper, -halfD + skin / 2]}
+          mat={mats.sheet}
+          name="Rear"
+          shadow
+        />
+        <group name="Rear_Vent">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <mesh
+              key={i}
+              position={[-36 + (i % 3) * 22, yTop - 48 - Math.floor(i / 3) * 12, -halfD - 0.8]}
+              material={mats.frame}
+            >
+              <boxGeometry args={[14, 3, 1.4]} />
+            </mesh>
+          ))}
+        </group>
+      </ExplodePart>
+
+      <ExplodePart offset={[-105, 10, 0]} amount={shellAmt} name="Explode_LeftWall">
+        <Panel
+          size={[skin, upperH, D - R]}
+          at={[-halfW + skin / 2, yUpper, -R / 2]}
+          mat={mats.sheet}
+          name="Left"
+          shadow
+        />
+        <mesh
+          position={[-(halfW - R), yUpper, halfD - R]}
+          material={mats.sheet}
+          castShadow
+          name="Corner_FL"
+        >
+          <cylinderGeometry args={[R - 0.05, R - 0.05, upperH, 22]} />
+        </mesh>
+      </ExplodePart>
+
+      <ExplodePart offset={[105, 10, 0]} amount={shellAmt} name="Explode_RightWall">
+        <Panel
+          size={[skin, upperH, D - R]}
+          at={[halfW - skin / 2, yUpper, -R / 2]}
+          mat={mats.sheet}
+          name="Right"
+          shadow
+        />
+        <mesh
+          position={[halfW - R, yUpper, halfD - R]}
+          material={mats.sheet}
+          castShadow
+          name="Corner_FR"
+        >
+          <cylinderGeometry args={[R - 0.05, R - 0.05, upperH, 22]} />
+        </mesh>
+      </ExplodePart>
+
+      <ExplodePart offset={[0, 90, 0]} amount={shellAmt} name="Explode_Roof">
+        <Panel size={[W + 14, 8, D + 14]} at={[0, yTop + 4, 0]} mat={mats.sheet} name="Roof" shadow />
+        <mesh
+          position={[0, yTop + 6.2, halfD + 3]}
+          rotation={[0, 0, Math.PI / 2]}
+          material={mats.sheet}
+          name="Roof_Lip"
+        >
+          <cylinderGeometry args={[4.2, 4.2, W - 16, 18]} />
+        </mesh>
+      </ExplodePart>
 
       {/* —— 正立面：左铭牌板 / 门洞 / 右颊 —— */}
-      <Panel
-        size={[leftW, upperH, skin]}
-        at={[leftX0 + leftW / 2, yUpper, zFace - skin / 2]}
-        mat={mats.sheet}
-        name="Front_Brand"
-        shadow
-      />
-      <Panel
-        size={[rightW, upperH, skin]}
-        at={[openR + rightW / 2, yUpper, zFace - skin / 2]}
-        mat={mats.sheet}
-        name="Front_Right"
-        shadow
-      />
-      <Panel
-        size={[openR - openL, sillH, skin]}
-        at={[(openL + openR) / 2, seamY + sillH / 2, zFace - skin / 2]}
-        mat={mats.sheet}
-        name="Front_Sill"
-        shadow
-      />
-      <Panel
-        size={[openR - openL, headH, skin]}
-        at={[(openL + openR) / 2, openT + headH / 2, zFace - skin / 2]}
-        mat={mats.sheet}
-        name="Front_Header"
-        shadow
-      />
-      {/* 门洞内凹，关门时只露一条暗缝，开门后能看见内部 */}
-      <group position={[(openL + openR) / 2, (openB + openT) / 2, zFace - 16]} name="Door_Reveal">
-        <PictureFrame
-          width={openR - openL + 8}
-          height={openT - openB + 8}
-          bar={9}
-          depth={12}
-          mat={mats.cavity}
+      <ExplodePart offset={[0, 5, 85]} amount={shellAmt} name="Explode_Front">
+        <Panel
+          size={[leftW, upperH, skin]}
+          at={[leftX0 + leftW / 2, yUpper, zFace - skin / 2]}
+          mat={mats.sheet}
+          name="Front_Brand"
+          shadow
         />
-      </group>
-
-      {/* 门下灰铭牌 */}
-      <Panel
-        size={[doorW + 8, stripH, 3.2]}
-        at={[doorX, stripY, zFace + 0.55]}
-        mat={mats.nameplate}
-        name="Model_Plate"
-        shadow
-      />
-      <Panel
-        size={[doorW + 8, 1.4, 3.4]}
-        at={[doorX, openB - 0.5, zFace + 0.7]}
-        mat={mats.seamDark}
-      />
-      {[-1, 1].map((s) => (
-        <mesh
-          key={s}
-          position={[doorX + s * (doorW / 2 - 10), stripY, zFace + 2.3]}
-          rotation={[Math.PI / 2, 0, 0]}
-          material={mats.steel}
-        >
-          <cylinderGeometry args={[1.15, 1.15, 1.2, 8]} />
+        <Panel
+          size={[rightW, upperH, skin]}
+          at={[openR + rightW / 2, yUpper, zFace - skin / 2]}
+          mat={mats.sheet}
+          name="Front_Right"
+          shadow
+        />
+        <Panel
+          size={[openR - openL, sillH, skin]}
+          at={[(openL + openR) / 2, seamY + sillH / 2, zFace - skin / 2]}
+          mat={mats.sheet}
+          name="Front_Sill"
+          shadow
+        />
+        <Panel
+          size={[openR - openL, headH, skin]}
+          at={[(openL + openR) / 2, openT + headH / 2, zFace - skin / 2]}
+          mat={mats.sheet}
+          name="Front_Header"
+          shadow
+        />
+        <group position={[(openL + openR) / 2, (openB + openT) / 2, zFace - 16]} name="Door_Reveal">
+          <PictureFrame
+            width={openR - openL + 8}
+            height={openT - openB + 8}
+            bar={9}
+            depth={12}
+            mat={mats.cavity}
+          />
+        </group>
+        <Panel
+          size={[doorW + 8, stripH, 3.2]}
+          at={[doorX, stripY, zFace + 0.55]}
+          mat={mats.nameplate}
+          name="Model_Plate"
+          shadow
+        />
+        <Panel size={[doorW + 8, 1.4, 3.4]} at={[doorX, openB - 0.5, zFace + 0.7]} mat={mats.seamDark} />
+        {[-1, 1].map((s) => (
+          <mesh
+            key={s}
+            position={[doorX + s * (doorW / 2 - 10), stripY, zFace + 2.3]}
+            rotation={[Math.PI / 2, 0, 0]}
+            material={mats.steel}
+          >
+            <cylinderGeometry args={[1.15, 1.15, 1.2, 8]} />
+          </mesh>
+        ))}
+        <mesh position={[doorX, stripY, zFace + 2.5]} material={mats.stripLabel} name="Strip_Label">
+          <planeGeometry args={[doorW * 0.55, stripH * 0.7]} />
         </mesh>
-      ))}
-      <mesh position={[doorX, stripY, zFace + 2.5]} material={mats.stripLabel} name="Strip_Label">
-        <planeGeometry args={[doorW * 0.55, stripH * 0.7]} />
-      </mesh>
-
-      {/* 左立面超大竖排型号：画布贴图，逐字正立、自上而下 */}
-      <mesh position={[-152, doorY + 4, zFace + 1.35]} material={mats.modelPlate} name="Model_Plate">
-        <planeGeometry args={[28, doorH * 0.82]} />
-      </mesh>
-      <mesh position={[-118, doorY - 2, zFace + 1.35]} material={mats.corpPlate} name="Corp_Plate">
-        <planeGeometry args={[22, doorH * 0.42]} />
-      </mesh>
-      <mesh position={[-82, doorY, zFace + 1.05]} material={mats.wave} name="Wave_Decal">
-        <planeGeometry args={[30, doorH * 0.96]} />
-      </mesh>
+        <mesh position={[-152, doorY + 4, zFace + 1.35]} material={mats.modelPlate} name="Model_Plate">
+          <planeGeometry args={[28, doorH * 0.82]} />
+        </mesh>
+        <mesh position={[-118, doorY - 2, zFace + 1.35]} material={mats.corpPlate} name="Corp_Plate">
+          <planeGeometry args={[22, doorH * 0.42]} />
+        </mesh>
+        <mesh position={[-82, doorY, zFace + 1.05]} material={mats.wave} name="Wave_Decal">
+          <planeGeometry args={[30, doorH * 0.96]} />
+        </mesh>
+      </ExplodePart>
 
       {/* —— 亮黄滑门：单条竖窗 + 右拉手 + 警示贴 —— */}
+      <ExplodePart offset={[55, 15, 120]} amount={shellAmt} name="Explode_Door">
       <group ref={doorRef} name="Yellow_Door">
         <group position={[doorX, doorY, zFace + 4.4]}>
           <Panel
@@ -1069,55 +1087,66 @@ export default function Sf260Exterior({
           </group>
         </group>
       </group>
+      </ExplodePart>
 
       {/* —— 左侧：前部黑窗 + 后部黄检修门 —— */}
-      <group position={[-halfW, sideWinY, sideWinZ]} rotation={[0, -Math.PI / 2, 0]} name="Left_Window">
-        <Panel size={[sideWinW - 4, sideWinH - 4, 1.4]} at={[0, 0, -4.5]} mat={mats.cavity} />
-        <mesh position={[0, 0, 0.3]} material={mats.glassSide} name="Side_Glass" renderOrder={2}>
-          <boxGeometry args={[sideWinW - 14, sideWinH - 14, 1.1]} />
-        </mesh>
-        <mesh position={[-12, 10, 1.05]} material={mats.streak} renderOrder={3}>
-          <boxGeometry args={[2.2, sideWinH * 0.45, 0.2]} />
-        </mesh>
-        <PictureFrame width={sideWinW - 6} height={sideWinH - 6} bar={3.4} depth={2} mat={mats.frame} />
-        <group position={[0, 0, 1.8]}>
-          <PictureFrame width={sideWinW + 2} height={sideWinH + 2} bar={4.4} depth={2.4} mat={mats.sheet} name="Side_Frame" />
-        </group>
-        <Panel size={[34, 11, 1.6]} at={[0, -sideWinH / 2 - 1, 2.4]} mat={mats.yellow} name="Side_Tag" />
-        <mesh position={[0, -sideWinH / 2 - 1, 3.4]} material={mats.sideTagLabel} name="Side_Tag_Label">
-          <planeGeometry args={[30, 8]} />
-        </mesh>
-      </group>
-      <Panel
-        size={[1.5, upperH - 24, 2.2]}
-        at={[-halfW - 0.6, yUpper, -16]}
-        mat={mats.seam}
-        name="Left_Panel_Seam"
-      />
-      <group position={[-halfW, svcY, svcZ]} rotation={[0, -Math.PI / 2, 0]} name="Service_Door">
-        <Panel size={[svcW + 5, svcH + 5, 1.6]} at={[0, 0, -1.8]} mat={mats.cavity} />
-        <RoundedBox
-          args={[svcW, svcH, 4.6]}
-          radius={0.9}
-          smoothness={2}
-          bevelSegments={2}
-          material={mats.yellow}
-          castShadow
-          name="Service_Slab"
-        />
-        <group position={[svcW / 2 - 7, 0, 3.6]} name="Service_Handle">
-          <mesh material={mats.stainless} castShadow>
-            <cylinderGeometry args={[1.25, 1.25, svcH * 0.34, 12]} />
+      <ExplodePart offset={[-115, 5, 15]} amount={shellAmt} name="Explode_LeftFeatures">
+        <group position={[-halfW, sideWinY, sideWinZ]} rotation={[0, -Math.PI / 2, 0]} name="Left_Window">
+          <Panel size={[sideWinW - 4, sideWinH - 4, 1.4]} at={[0, 0, -4.5]} mat={mats.cavity} />
+          <mesh position={[0, 0, 0.3]} material={mats.glassSide} name="Side_Glass" renderOrder={2}>
+            <boxGeometry args={[sideWinW - 14, sideWinH - 14, 1.1]} />
           </mesh>
-          {[0.12, -0.12].map((k) => (
-            <mesh key={k} position={[0, svcH * k, -2.2]} rotation={[Math.PI / 2, 0, 0]} material={mats.steel}>
-              <boxGeometry args={[3.2, 2.4, 5]} />
-            </mesh>
-          ))}
+          <mesh position={[-12, 10, 1.05]} material={mats.streak} renderOrder={3}>
+            <boxGeometry args={[2.2, sideWinH * 0.45, 0.2]} />
+          </mesh>
+          <PictureFrame width={sideWinW - 6} height={sideWinH - 6} bar={3.4} depth={2} mat={mats.frame} />
+          <group position={[0, 0, 1.8]}>
+            <PictureFrame
+              width={sideWinW + 2}
+              height={sideWinH + 2}
+              bar={4.4}
+              depth={2.4}
+              mat={mats.sheet}
+              name="Side_Frame"
+            />
+          </group>
+          <Panel size={[34, 11, 1.6]} at={[0, -sideWinH / 2 - 1, 2.4]} mat={mats.yellow} name="Side_Tag" />
+          <mesh position={[0, -sideWinH / 2 - 1, 3.4]} material={mats.sideTagLabel} name="Side_Tag_Label">
+            <planeGeometry args={[30, 8]} />
+          </mesh>
         </group>
-      </group>
+        <Panel
+          size={[1.5, upperH - 24, 2.2]}
+          at={[-halfW - 0.6, yUpper, -16]}
+          mat={mats.seam}
+          name="Left_Panel_Seam"
+        />
+        <group position={[-halfW, svcY, svcZ]} rotation={[0, -Math.PI / 2, 0]} name="Service_Door">
+          <Panel size={[svcW + 5, svcH + 5, 1.6]} at={[0, 0, -1.8]} mat={mats.cavity} />
+          <RoundedBox
+            args={[svcW, svcH, 4.6]}
+            radius={0.9}
+            smoothness={2}
+            bevelSegments={2}
+            material={mats.yellow}
+            castShadow
+            name="Service_Slab"
+          />
+          <group position={[svcW / 2 - 7, 0, 3.6]} name="Service_Handle">
+            <mesh material={mats.stainless} castShadow>
+              <cylinderGeometry args={[1.25, 1.25, svcH * 0.34, 12]} />
+            </mesh>
+            {[0.12, -0.12].map((k) => (
+              <mesh key={k} position={[0, svcH * k, -2.2]} rotation={[Math.PI / 2, 0, 0]} material={mats.steel}>
+                <boxGeometry args={[3.2, 2.4, 5]} />
+              </mesh>
+            ))}
+          </group>
+        </group>
+      </ExplodePart>
 
       {/* —— 正面右颊操作台：明显凸出柜面、顶部高出柜顶，左缘紧贴黄门 —— */}
+      <ExplodePart offset={[95, 8, 55]} amount={shellAmt} name="Explode_HMI">
       <group position={[openR + hmiW / 2 + 1, hmiY, zFace + hmiD / 2 + 1]} name="HMI_Console">
         <RoundedBox
           args={[hmiW, hmiH, hmiD]}
@@ -1288,45 +1317,48 @@ export default function Sf260Exterior({
           </mesh>
         </group>
       </group>
+      </ExplodePart>
 
       {/* —— 顶部气动平衡缸 + 蓝气管 —— */}
-      <group position={[doorX, yTop, 6]} name="Balance_Cylinder">
-        <Panel size={[56, 2.2, 50]} at={[0, 1.2, 0]} mat={mats.yellowDeep} />
-        <RoundedBox
-          args={[52, 16, 46]}
-          radius={1.4}
-          smoothness={2}
-          position={[0, 10, 0]}
-          material={mats.yellow}
-          castShadow
-          name="Cylinder_Base"
-        />
-        {(
-          [
-            [-16, 18.4, -13],
-            [16, 18.4, -13],
-            [-16, 18.4, 13],
-            [16, 18.4, 13],
-          ] as [number, number, number][]
-        ).map((p, i) => (
-          <mesh key={i} position={p} material={mats.steel}>
-            <cylinderGeometry args={[1.15, 1.15, 1.6, 8]} />
+      <ExplodePart offset={[20, 110, 10]} amount={shellAmt} name="Explode_Balance">
+        <group position={[doorX, yTop, 6]} name="Balance_Cylinder">
+          <Panel size={[56, 2.2, 50]} at={[0, 1.2, 0]} mat={mats.yellowDeep} />
+          <RoundedBox
+            args={[52, 16, 46]}
+            radius={1.4}
+            smoothness={2}
+            position={[0, 10, 0]}
+            material={mats.yellow}
+            castShadow
+            name="Cylinder_Base"
+          />
+          {(
+            [
+              [-16, 18.4, -13],
+              [16, 18.4, -13],
+              [-16, 18.4, 13],
+              [16, 18.4, 13],
+            ] as [number, number, number][]
+          ).map((p, i) => (
+            <mesh key={i} position={p} material={mats.steel}>
+              <cylinderGeometry args={[1.15, 1.15, 1.6, 8]} />
+            </mesh>
+          ))}
+          <mesh position={[0, 20.5, 0]} material={mats.stainless} castShadow>
+            <cylinderGeometry args={[11.2, 12, 5, 22]} />
           </mesh>
-        ))}
-        <mesh position={[0, 20.5, 0]} material={mats.stainless} castShadow>
-          <cylinderGeometry args={[11.2, 12, 5, 22]} />
-        </mesh>
-        <mesh position={[0, 68, 0]} material={mats.stainless} castShadow name="Balance_Rod">
-          <cylinderGeometry args={[7.2, 7.4, 92, 24]} />
-        </mesh>
-        <mesh position={[0, 112, 0]} material={mats.steel}>
-          <cylinderGeometry args={[7.4, 6.3, 4.2, 20]} />
-        </mesh>
-        <mesh position={[-16, 12, 12]} rotation={[0, 0, Math.PI / 2]} material={mats.stainless} name="Air_Fitting">
-          <cylinderGeometry args={[2.4, 2.4, 7, 10]} />
-        </mesh>
-        <mesh geometry={airGeo} material={mats.blue} name="Air_Tube" />
-      </group>
+          <mesh position={[0, 68, 0]} material={mats.stainless} castShadow name="Balance_Rod">
+            <cylinderGeometry args={[7.2, 7.4, 92, 24]} />
+          </mesh>
+          <mesh position={[0, 112, 0]} material={mats.steel}>
+            <cylinderGeometry args={[7.4, 6.3, 4.2, 20]} />
+          </mesh>
+          <mesh position={[-16, 12, 12]} rotation={[0, 0, Math.PI / 2]} material={mats.stainless} name="Air_Fitting">
+            <cylinderGeometry args={[2.4, 2.4, 7, 10]} />
+          </mesh>
+          <mesh geometry={airGeo} material={mats.blue} name="Air_Tube" />
+        </group>
+      </ExplodePart>
     </group>
   );
 }

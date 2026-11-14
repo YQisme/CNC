@@ -25,6 +25,7 @@ import { toolRadius, getToolByNumber, type CncTool } from "@/lib/cnc/tools";
 import { getMaterialById } from "@/lib/cnc/materials";
 import type { Move } from "@/lib/cnc/types";
 import Sf260Machine, { Sf260WorkRotaryGroup } from "@/components/cnc/machines/Sf260Machine";
+import ExplodePart, { explodeAmounts } from "@/components/cnc/machines/ExplodePart";
 import { workpieceToWorld } from "@/lib/cnc/kinematics";
 
 const TOOL_FALLBACK: CncTool = {
@@ -604,7 +605,9 @@ function CameraController() {
   const target = useSimStore((s) => s.workpiece);
   const originDatum = useSimStore((s) => s.originDatum);
   const machineId = useSimStore((s) => s.machineId);
-  const far = machineId === "sf260_5axis" ? 1.85 : 1;
+  const isSf260 = machineId === "sf260_5axis";
+  // SF-260 整机包络约 4m 级，需明显拉远；其它机床仍对准工件
+  const far = isSf260 ? 2.55 : 1;
 
   const cx = originDatum === "front_left" ? target.width / 2 : 0;
   const cz = originDatum === "front_left" ? -target.depth / 2 : 0;
@@ -612,8 +615,10 @@ function CameraController() {
   useEffect(() => {
     if (!preset) return;
     const cam = camera as THREE.PerspectiveCamera;
+    // 整机概览盯柜体中部；加工区近景仍盯工件
+    const overview = isSf260 && preset !== "focus";
+    const lookY = overview ? 110 : target.height * 0.35;
     let pos: [number, number, number] = [cx + 230 * far, 190 * far, cz + 250 * far];
-    const lookY = target.height * 0.35;
     switch (preset) {
       case "iso":
         pos = [cx + 230 * far, 190 * far, cz + 250 * far];
@@ -644,7 +649,28 @@ function CameraController() {
       controls.target.set(cx, lookY, cz);
       controls.update();
     }
-  }, [preset, nonce, cx, cz, far, target.height, camera, controls]);
+  }, [preset, nonce, cx, cz, far, isSf260, target.height, camera, controls]);
+
+  return null;
+}
+
+/** 切换机床时套用合适默认视角：SF-260 → 整机，其它 → 工件等轴测 */
+function MachineCameraFit() {
+  const machineId = useSimStore((s) => s.machineId);
+  const setCameraPreset = useViewStore((s) => s.setCameraPreset);
+  const prevId = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (prevId.current === machineId) return;
+    const first = prevId.current === null;
+    prevId.current = machineId;
+    // 首次挂载若已是 SF-260（示例程序带入），或之后从列表切入，都拉到整机
+    if (machineId === "sf260_5axis") {
+      setCameraPreset("iso");
+    } else if (!first) {
+      setCameraPreset("reset");
+    }
+  }, [machineId, setCameraPreset]);
 
   return null;
 }
@@ -670,8 +696,11 @@ function SceneContents() {
   const workpiece = useSimStore((s) => s.workpiece);
   const originDatum = useSimStore((s) => s.originDatum);
   const showGrid = useViewStore((s) => s.showGrid);
+  const showShell = useViewStore((s) => s.showShell);
+  const explodeAmount = useViewStore((s) => s.explodeAmount);
   const machineId = useSimStore((s) => s.machineId);
   const isSf260 = machineId === "sf260_5axis";
+  const { internal: workExplodeAmt } = explodeAmounts(explodeAmount, showShell);
 
   const cx = originDatum === "front_left" ? workpiece.width / 2 : 0;
   const cz = originDatum === "front_left" ? -workpiece.depth / 2 : 0;
@@ -706,10 +735,12 @@ function SceneContents() {
 
       {isSf260 ? <Sf260Machine /> : <MachineFrame />}
       {isSf260 ? (
-        <Sf260WorkRotaryGroup>
-          <Workpiece />
-          <Toolpath />
-        </Sf260WorkRotaryGroup>
+        <ExplodePart offset={[0, -25, 55]} amount={workExplodeAmt} name="Explode_Workzone">
+          <Sf260WorkRotaryGroup>
+            <Workpiece />
+            <Toolpath />
+          </Sf260WorkRotaryGroup>
+        </ExplodePart>
       ) : (
         <>
           <Workpiece />
@@ -754,6 +785,7 @@ function SceneContents() {
         dampingFactor={0.08}
       />
       <CameraController />
+      <MachineCameraFit />
       <PlayFocusController />
     </>
   );
