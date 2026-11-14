@@ -27,6 +27,7 @@ import type { Move } from "@/lib/cnc/types";
 import Sf260Machine, { Sf260WorkRotaryGroup } from "@/components/cnc/machines/Sf260Machine";
 import ExplodePart, { explodeAmounts } from "@/components/cnc/machines/ExplodePart";
 import ChipDebris from "@/components/cnc/ChipDebris";
+import DrillBores from "@/components/cnc/DrillBores";
 import ToolGeometry from "@/components/cnc/ToolGeometry";
 import { workpieceToWorld } from "@/lib/cnc/kinematics";
 
@@ -231,7 +232,8 @@ function Workpiece() {
   const parseResult = useSimStore((s) => s.parseResult);
   const materialId = useSimStore((s) => s.materialId);
   const machineMode = useSimStore((s) => s.machineMode);
-  const N = 120;
+  // 钻孔场景提高网格密度，孔口更锐
+  const N = 160;
 
   const top = useMemo<TopSurface>(
     () => createTopSurface(workpiece.width, workpiece.depth, N, originDatum),
@@ -270,6 +272,7 @@ function Workpiece() {
 
   useEffect(() => {
     lastApplied.current = { idx: -1, t: -1 };
+    liveRef.current = new Float32Array((N + 1) * (N + 1));
     top.reset();
     removedVolRef.current = 0;
     const attr = top.geometry.getAttribute("color") as THREE.BufferAttribute | undefined;
@@ -279,7 +282,7 @@ function Workpiece() {
       }
       attr.needsUpdate = true;
     }
-  }, [cumulative, top, stockCol]);
+  }, [cumulative, top, stockCol, N]);
 
   useFrame(() => {
     if (!cumulative || !parseResult || parseResult.moves.length === 0) {
@@ -403,6 +406,8 @@ function Workpiece() {
       />
       {/* 加工顶面 = 成品表面 */}
       <mesh geometry={top.geometry} material={topMat} receiveShadow castShadow />
+      {/* 钻孔孔壁 / 锥底（比纯高度图更真实） */}
+      <DrillBores stockHeight={workpiece.height} />
       {/* 加工完成后轻微高亮成品 */}
       {finished && (
         <mesh position={bodyPos}>
