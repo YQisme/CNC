@@ -257,6 +257,8 @@ const sidebarStyle = computed(() =>
   height: 100%;
   width: 100%;
   background: #0b0d10;
+  /* 把 HUD 与 WebGL 画布隔离到独立合成层，减少视角拖动时半透明叠层闪烁 */
+  isolation: isolate;
 }
 .viewport-wrap :deep(canvas) {
   width: 100% !important;

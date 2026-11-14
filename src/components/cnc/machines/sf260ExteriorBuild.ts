@@ -1061,7 +1061,8 @@ export function buildSf260Exterior(
     const capMats = [mats.capRed, mats.capGreen, mats.capYellow, mats.capBlue];
     CAP_COLORS.forEach((_c, i) => {
       const g = new THREE.Group();
-      g.position.set(-hmiW * 0.28 + i * (hmiW * 0.12), -hmiH * 0.3, hmiFaceZ + 0.9);
+      // 灯钮底座抬出面板，避免钢底座边缘与壳体共面闪烁
+      g.position.set(-hmiW * 0.28 + i * (hmiW * 0.12), -hmiH * 0.3, hmiFaceZ + 1.35);
       const base = new THREE.Mesh(new THREE.CylinderGeometry(3.4, 3.4, 1.2, 14), mats.steel);
       base.rotation.x = Math.PI / 2;
       g.add(base);
@@ -1074,7 +1075,8 @@ export function buildSf260Exterior(
     });
     const estop = new THREE.Group();
     estop.name = "E_Stop";
-    estop.position.set(hmiW * 0.3, -hmiH * 0.3, hmiFaceZ + 0.8);
+    // 略抬出面板正面，避免与 HMI 壳体共面闪烁
+    estop.position.set(hmiW * 0.3, -hmiH * 0.3, hmiFaceZ + 1.4);
     const ey = new THREE.Mesh(new THREE.CylinderGeometry(5.2, 5.2, 1.3, 16), mats.yellow);
     ey.rotation.x = Math.PI / 2;
     estop.add(ey);
@@ -1084,18 +1086,26 @@ export function buildSf260Exterior(
     er.castShadow = true;
     estop.add(er);
     hmi.add(estop);
-    addBox(hmi, [hmiW - 10, 16, 10], [0, -hmiH / 2 + 14, hmiFaceZ - 5], mats.cavity, { name: "Cable_Bay" });
+    // 线缆仓内凹：正面必须低于 HMI 壳体，否则拖动视角时黑色矩形 Z-fighting 闪烁
+    addBox(
+      hmi,
+      [hmiW - 12, 14, 8],
+      [0, -hmiH / 2 + 14, hmiFaceZ - 5.5],
+      mats.cavity,
+      { name: "Cable_Bay" },
+    );
     const dock = new THREE.Group();
     dock.name = "Pendant_Dock";
-    dock.position.set(-10, -hmiH / 2 + 16, hmiFaceZ + 2);
-    addRoundedBox(dock, [14, 10, 12], 1, mats.rubber, { name: "Pendant_Body", shadow: true });
+    // 手轮座整体在面板前方（背面也离开壳体），避免与黑色仓/面板共面闪烁
+    dock.position.set(-10, -hmiH / 2 + 16, hmiFaceZ + 6.5);
+    addRoundedBox(dock, [14, 10, 8], 1, mats.rubber, { name: "Pendant_Body", shadow: true });
     const hw = new THREE.Mesh(new THREE.CylinderGeometry(4.2, 4.2, 1.8, 18), mats.stainless);
-    hw.position.set(0, 0, 6.5);
+    hw.position.set(0, 0, 5.2);
     hw.rotation.x = Math.PI / 2;
     hw.name = "Handwheel";
     dock.add(hw);
     const led = new THREE.Mesh(new THREE.SphereGeometry(1.2, 8, 8), mats.capGreen);
-    led.position.set(4.5, 0, 4);
+    led.position.set(4.5, 0, 3.2);
     dock.add(led);
     hmi.add(dock);
     const coilA = new THREE.Mesh(cableA, mats.cableMat);

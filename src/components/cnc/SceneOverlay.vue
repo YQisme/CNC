@@ -67,7 +67,8 @@ async function onExport(format: ExportFormat) {
       await new Promise<void>((r) => requestAnimationFrame(() => r()));
     }
     await downloadMachineModel(format, "SF-260H");
-    exportMsg.value = format === "glb" ? "已下载 GLB（外壳+内部两组）" : "已下载 OBJ（外壳+内部两组）";
+    exportMsg.value =
+      format === "glb" ? "已下载 GLB（外壳+内部两组）" : "已下载 OBJ（外壳+内部两组）";
   } catch (e) {
     exportMsg.value = e instanceof Error ? e.message : "导出失败";
   } finally {
@@ -78,14 +79,21 @@ async function onExport(format: ExportFormat) {
     }, 2800);
   }
 }
+
+/** 覆盖在 WebGL 上的 HUD：用不透明底，避免 backdrop-blur / 半透明随画布重绘闪烁 */
+const hudPanel =
+  "pointer-events-auto rounded-md border border-white/12 bg-[#12151c] shadow-lg";
+const hudBtnBase =
+  "flex h-8 w-8 items-center justify-center rounded-md border transition-colors";
+const hudBtnOn = "border-cyan-400/50 bg-cyan-500/20 text-cyan-200";
+const hudBtnOff =
+  "border-transparent bg-transparent text-slate-400 hover:bg-white/8 hover:text-slate-200";
 </script>
 
 <template>
   <!-- top-left -->
   <div class="pointer-events-none absolute left-3 top-3 z-10 flex flex-col gap-1.5">
-    <div
-      class="pointer-events-auto flex items-center gap-2 rounded-md border border-cyan-500/30 bg-black/70 px-2.5 py-1.5 shadow-lg backdrop-blur"
-    >
+    <div :class="cn(hudPanel, 'flex items-center gap-2 px-2.5 py-1.5')">
       <Cpu class="h-4 w-4 text-cyan-400" />
       <el-select
         :model-value="sim.machineId"
@@ -102,27 +110,20 @@ async function onExport(format: ExportFormat) {
       </el-select>
     </div>
 
-    <div
-      class="pointer-events-auto flex items-center gap-2 rounded-md border border-white/10 bg-black/60 px-2.5 py-1.5 backdrop-blur"
-    >
+    <div :class="cn(hudPanel, 'flex items-center gap-2 px-2.5 py-1.5')">
       <Camera class="h-3.5 w-3.5 text-cyan-400" />
       <span class="max-w-[180px] truncate text-xs font-semibold text-slate-100">
         {{ sim.programName }}
       </span>
     </div>
-    <div
-      class="pointer-events-auto flex items-center gap-2 rounded-md border border-white/10 bg-black/60 px-2.5 py-1.5 backdrop-blur"
-    >
+    <div :class="cn(hudPanel, 'flex items-center gap-2 px-2.5 py-1.5')">
       <Wrench class="h-3.5 w-3.5 text-amber-400" />
       <span class="font-mono text-[10px] text-slate-300">
         T{{ sim.tool || 0 }} 当前刀具
       </span>
     </div>
 
-    <div
-      v-if="canExport"
-      class="pointer-events-auto flex flex-col gap-1 rounded-md border border-white/10 bg-black/70 p-1.5 shadow-lg backdrop-blur"
-    >
+    <div v-if="canExport" :class="cn(hudPanel, 'flex flex-col gap-1 p-1.5')">
       <div
         class="flex items-center gap-1.5 px-1 pb-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400"
       >
@@ -153,20 +154,13 @@ async function onExport(format: ExportFormat) {
     </div>
   </div>
 
-  <!-- top-right -->
-  <div class="absolute right-3 top-3 z-10 flex flex-col gap-1.5">
-    <div class="flex flex-col gap-1.5">
+  <!-- top-right：整块实心面板，避免每个按钮各自黑底叠在画布上闪烁 -->
+  <div :class="cn(hudPanel, 'absolute right-3 top-3 z-10 flex flex-col gap-1 p-1.5')">
+    <div class="flex flex-col gap-1">
       <el-tooltip content="显示/隐藏 3D 刀具路径" placement="left">
         <button
           type="button"
-          :class="
-            cn(
-              'flex h-8 w-8 items-center justify-center rounded-md border transition-colors',
-              view.showToolpath
-                ? 'border-cyan-400/50 bg-cyan-500/20 text-cyan-200'
-                : 'border-white/10 bg-black/60 text-slate-400 hover:bg-white/10 hover:text-slate-200',
-            )
-          "
+          :class="cn(hudBtnBase, view.showToolpath ? hudBtnOn : hudBtnOff)"
           @click="toggle('showToolpath')"
         >
           <Route class="h-4 w-4" />
@@ -175,14 +169,7 @@ async function onExport(format: ExportFormat) {
       <el-tooltip content="显示/隐藏网格与比例" placement="left">
         <button
           type="button"
-          :class="
-            cn(
-              'flex h-8 w-8 items-center justify-center rounded-md border transition-colors',
-              view.showGrid
-                ? 'border-cyan-400/50 bg-cyan-500/20 text-cyan-200'
-                : 'border-white/10 bg-black/60 text-slate-400 hover:bg-white/10 hover:text-slate-200',
-            )
-          "
+          :class="cn(hudBtnBase, view.showGrid ? hudBtnOn : hudBtnOff)"
           @click="toggle('showGrid')"
         >
           <Grid3x3 class="h-4 w-4" />
@@ -196,14 +183,7 @@ async function onExport(format: ExportFormat) {
         >
           <button
             type="button"
-            :class="
-              cn(
-                'flex h-8 w-8 items-center justify-center rounded-md border transition-colors',
-                view.showShell
-                  ? 'border-cyan-400/50 bg-cyan-500/20 text-cyan-200'
-                  : 'border-white/10 bg-black/60 text-slate-400 hover:bg-white/10 hover:text-slate-200',
-              )
-            "
+            :class="cn(hudBtnBase, view.showShell ? hudBtnOn : hudBtnOff)"
             @click="toggle('showShell')"
           >
             <Eye v-if="view.showShell" class="h-4 w-4" />
@@ -217,14 +197,7 @@ async function onExport(format: ExportFormat) {
         >
           <button
             type="button"
-            :class="
-              cn(
-                'flex h-8 w-8 items-center justify-center rounded-md border transition-colors',
-                view.showEnclosure
-                  ? 'border-cyan-400/50 bg-cyan-500/20 text-cyan-200'
-                  : 'border-white/10 bg-black/60 text-slate-400 hover:bg-white/10 hover:text-slate-200',
-              )
-            "
+            :class="cn(hudBtnBase, view.showEnclosure ? hudBtnOn : hudBtnOff)"
             @click="toggle('showEnclosure')"
           >
             <DoorOpen class="h-4 w-4" />
@@ -234,14 +207,7 @@ async function onExport(format: ExportFormat) {
       <el-tooltip v-else content="显示/隐藏护罩" placement="left">
         <button
           type="button"
-          :class="
-            cn(
-              'flex h-8 w-8 items-center justify-center rounded-md border transition-colors',
-              view.showEnclosure
-                ? 'border-cyan-400/50 bg-cyan-500/20 text-cyan-200'
-                : 'border-white/10 bg-black/60 text-slate-400 hover:bg-white/10 hover:text-slate-200',
-            )
-          "
+          :class="cn(hudBtnBase, view.showEnclosure ? hudBtnOn : hudBtnOff)"
           @click="toggle('showEnclosure')"
         >
           <Box class="h-4 w-4" />
@@ -249,9 +215,9 @@ async function onExport(format: ExportFormat) {
       </el-tooltip>
     </div>
 
-    <div class="my-1 h-px w-full bg-white/10" />
+    <div class="mx-auto h-px w-6 bg-white/10" />
 
-    <div class="flex flex-col gap-1.5">
+    <div class="flex flex-col gap-1">
       <el-tooltip
         v-for="p in PRESETS"
         :key="p.id"
@@ -260,7 +226,7 @@ async function onExport(format: ExportFormat) {
       >
         <button
           type="button"
-          class="flex h-8 w-8 items-center justify-center rounded-md border border-white/10 bg-black/60 text-slate-400 transition-colors hover:bg-white/10 hover:text-slate-200"
+          :class="cn(hudBtnBase, hudBtnOff)"
           @click="view.setCameraPreset(p.id)"
         >
           <ScanEye v-if="p.id === 'iso'" class="h-4 w-4" />
@@ -273,7 +239,7 @@ async function onExport(format: ExportFormat) {
       <el-tooltip content="重置相机环视" placement="left">
         <button
           type="button"
-          class="flex h-8 w-8 items-center justify-center rounded-md border border-white/10 bg-black/60 text-slate-400 transition-colors hover:bg-white/10 hover:text-slate-200"
+          :class="cn(hudBtnBase, hudBtnOff)"
           @click="view.setCameraPreset('reset')"
         >
           <RefreshCw class="h-4 w-4" />
@@ -284,7 +250,7 @@ async function onExport(format: ExportFormat) {
 
   <!-- bottom-left legend -->
   <div
-    class="pointer-events-none absolute bottom-3 left-3 z-10 flex items-center gap-3 rounded-md border border-white/10 bg-black/60 px-2.5 py-1.5 font-mono text-[10px] backdrop-blur"
+    class="pointer-events-none absolute bottom-3 left-3 z-10 flex items-center gap-3 rounded-md border border-white/12 bg-[#12151c] px-2.5 py-1.5 font-mono text-[10px] shadow-lg"
   >
     <span class="font-bold text-emerald-400">■ X</span>
     <span class="font-bold text-cyan-400">■ Y</span>
@@ -299,10 +265,10 @@ async function onExport(format: ExportFormat) {
     v-if="sim.machineId === 'sf260_5axis'"
     :class="
       cn(
-        'pointer-events-auto absolute bottom-3 right-3 z-10 flex w-56 items-center gap-2 rounded-md border px-2.5 py-2 backdrop-blur',
+        'pointer-events-auto absolute bottom-3 right-3 z-10 flex w-56 items-center gap-2 rounded-md border px-2.5 py-2 shadow-lg',
         view.explodeAmount > 0.01
-          ? 'border-cyan-400/50 bg-cyan-500/15'
-          : 'border-white/10 bg-black/60',
+          ? 'border-cyan-400/50 bg-[#0f2430]'
+          : 'border-white/12 bg-[#12151c]',
       )
     "
     :title="
