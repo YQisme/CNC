@@ -613,6 +613,7 @@ function CameraController() {
     if (!preset) return;
     const cam = camera as THREE.PerspectiveCamera;
     let pos: [number, number, number] = [cx + 230 * far, 190 * far, cz + 250 * far];
+    const lookY = target.height * 0.35;
     switch (preset) {
       case "iso":
         pos = [cx + 230 * far, 190 * far, cz + 250 * far];
@@ -632,14 +633,34 @@ function CameraController() {
       case "reset":
         pos = [cx + 230 * far, 190 * far, cz + 250 * far];
         break;
+      case "focus":
+        // 播放时拉近，对准工件/加工区
+        pos = [cx + 150, 115, cz + 170];
+        break;
     }
     cam.position.set(pos[0], pos[1], pos[2]);
-    cam.lookAt(cx, target.height * 0.35, cz);
+    cam.lookAt(cx, lookY, cz);
     if (controls) {
-      controls.target.set(cx, target.height * 0.35, cz);
+      controls.target.set(cx, lookY, cz);
       controls.update();
     }
-  }, [preset, nonce, cx, cz, far, target.height]);
+  }, [preset, nonce, cx, cz, far, target.height, camera, controls]);
+
+  return null;
+}
+
+/** 开始播放时自动聚焦机床加工区 */
+function PlayFocusController() {
+  const playing = useSimStore((s) => s.playing);
+  const wasPlaying = useRef(false);
+  const setCameraPreset = useViewStore((s) => s.setCameraPreset);
+
+  useEffect(() => {
+    if (playing && !wasPlaying.current) {
+      setCameraPreset("focus");
+    }
+    wasPlaying.current = playing;
+  }, [playing, setCameraPreset]);
 
   return null;
 }
@@ -733,6 +754,7 @@ function SceneContents() {
         dampingFactor={0.08}
       />
       <CameraController />
+      <PlayFocusController />
     </>
   );
 }

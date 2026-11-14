@@ -13,6 +13,7 @@ import { Edges, Text } from "@react-three/drei";
 import { useCallback, useEffect, useMemo, useRef, type ReactNode } from "react";
 import * as THREE from "three";
 import { useSimStore } from "@/lib/cnc/store";
+import { useViewStore } from "@/lib/cnc/viewStore";
 import { getToolByNumber, type CncTool } from "@/lib/cnc/tools";
 import { workpieceToWorld } from "@/lib/cnc/kinematics";
 import { setMachineExportRoot } from "@/lib/cnc/exportModel";
@@ -219,6 +220,7 @@ export default function Sf260Machine() {
   const spindleRpm = useSimStore((s) => s.spindleRpm);
   const coolant = useSimStore((s) => s.coolant);
   const toolNum = useSimStore((s) => s.tool);
+  const showShell = useViewStore((s) => s.showShell);
 
   const cx = originDatum === "front_left" ? workpiece.width / 2 : 0;
   const cy = originDatum === "front_left" ? workpiece.depth / 2 : 0;
@@ -325,8 +327,8 @@ export default function Sf260Machine() {
 
   return (
     <group ref={bindExportRoot} name="SF-260H_Machine">
-      {/* 整机外形外壳 */}
-      <Sf260Exterior cx={cx} cz={cz} baseTopY={baseTopY} />
+      {/* 整机外形外壳（可由视图开关完全隐藏） */}
+      {showShell && <Sf260Exterior cx={cx} cz={cz} baseTopY={baseTopY} />}
 
       {/* 内部结构：力封闭床身 + 立柱 */}
       <group position={[cx, 0, cz]} name="SF260_Structure">

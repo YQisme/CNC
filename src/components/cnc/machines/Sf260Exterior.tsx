@@ -14,7 +14,42 @@ import { useFrame } from "@react-three/fiber";
 import { RoundedBox, Text } from "@react-three/drei";
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
+import { useSimStore } from "@/lib/cnc/store";
 import { useViewStore } from "@/lib/cnc/viewStore";
+
+type GhostMat = THREE.Material & {
+  opacity: number;
+  transparent: boolean;
+  depthWrite: boolean;
+  userData: {
+    baseOpacity?: number;
+    baseTransparent?: boolean;
+    baseDepthWrite?: boolean;
+  };
+};
+
+function applyExteriorGhost(root: THREE.Object3D, amount: number) {
+  root.traverse((obj) => {
+    const mesh = obj as THREE.Mesh;
+    if (!mesh.isMesh || !mesh.material) return;
+    const list = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    for (const raw of list) {
+      const mat = raw as GhostMat;
+      if (mat.userData.baseOpacity == null) {
+        mat.userData.baseOpacity = mat.opacity ?? 1;
+        mat.userData.baseTransparent = mat.transparent;
+        mat.userData.baseDepthWrite = mat.depthWrite;
+      }
+      const base = mat.userData.baseOpacity;
+      // 播放时压到约 0.22，便于看清内部龙门/刀具
+      const ghostOpacity = Math.min(base, 0.22);
+      mat.opacity = THREE.MathUtils.lerp(base, ghostOpacity, amount);
+      mat.transparent = amount > 0.02 ? true : !!mat.userData.baseTransparent;
+      mat.depthWrite = amount > 0.45 ? false : !!mat.userData.baseDepthWrite;
+      mat.needsUpdate = true;
+    }
+  });
+}
 
 function canvasTexture(
   w: number,
@@ -384,8 +419,11 @@ export default function Sf260Exterior({
   baseTopY: number;
 }) {
   const showEnclosure = useViewStore((s) => s.showEnclosure);
+  const playing = useSimStore((s) => s.playing);
+  const rootRef = useRef<THREE.Group>(null);
   const doorRef = useRef<THREE.Group>(null);
   const openAmt = useRef(showEnclosure ? 0 : 1);
+  const ghostAmt = useRef(playing ? 1 : 0);
 
   const waveTex = useMemo(() => canvasTexture(256, 1024, paintWave), []);
   const stickerTex = useMemo(() => canvasTexture(256, 320, paintSticker), []);
@@ -679,6 +717,13 @@ export default function Sf260Exterior({
     airGeo,
   ]);
 
+  // 材质重建后若仍在播放，立刻重新套半透明
+  useEffect(() => {
+    if (rootRef.current && ghostAmt.current > 0.01) {
+      applyExteriorGhost(rootRef.current, ghostAmt.current);
+    }
+  }, [mats]);
+
   // 柜体包住内部龙门与左侧刀库，正立面比例接近官网：左铭牌 / 黄门 / 右颊
   const W = 416;
   const D = 360;
@@ -730,6 +775,17 @@ export default function Sf260Exterior({
     const target = showEnclosure ? 0 : 1;
     openAmt.current = THREE.MathUtils.damp(openAmt.current, target, 5.5, dt);
     if (doorRef.current) doorRef.current.position.x = openAmt.current * slide;
+
+    const ghostTarget = playing ? 1 : 0;
+    const prevGhost = ghostAmt.current;
+    ghostAmt.current = THREE.MathUtils.damp(ghostAmt.current, ghostTarget, 6, dt);
+    if (
+      rootRef.current &&
+      (Math.abs(ghostAmt.current - prevGhost) > 0.0005 ||
+        Math.abs(ghostAmt.current - ghostTarget) > 0.001)
+    ) {
+      applyExteriorGhost(rootRef.current, ghostAmt.current);
+    }
   });
 
   const frontBolts: [number, number, number][] = [];
@@ -784,7 +840,7 @@ export default function Sf260Exterior({
   const capMats = [mats.capRed, mats.capGreen, mats.capYellow, mats.capBlue];
 
   return (
-    <group position={[cx, 0, cz]} name="SF260_Exterior">
+    <group ref={rootRef} position={[cx, 0, cz]} name="SF260_Exterior">
       {/* —— 裙边 + 调平脚 —— */}
       <Panel
         size={[W - R * 2 + 4, 36, skin]}

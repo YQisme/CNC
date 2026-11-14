@@ -5,6 +5,9 @@ import {
   Route,
   Grid3x3,
   Box,
+  Eye,
+  EyeOff,
+  DoorOpen,
   RefreshCw,
   Maximize2,
   Camera,
@@ -66,6 +69,7 @@ const PRESETS: { id: CameraPreset; icon: React.ElementType; label: string }[] = 
 export default function SceneOverlay() {
   const showToolpath = useViewStore((s) => s.showToolpath);
   const showGrid = useViewStore((s) => s.showGrid);
+  const showShell = useViewStore((s) => s.showShell);
   const showEnclosure = useViewStore((s) => s.showEnclosure);
   const toggle = useViewStore((s) => s.toggle);
   const setCameraPreset = useViewStore((s) => s.setCameraPreset);
@@ -173,13 +177,34 @@ export default function SceneOverlay() {
           >
             <Grid3x3 className="h-4 w-4" />
           </ToggleBtn>
-          <ToggleBtn
-            active={showEnclosure}
-            onClick={() => toggle("showEnclosure")}
-            tooltip={machineId === "sf260_5axis" ? "关闭/打开防护门（外形）" : "显示/隐藏护罩"}
-          >
-            <Box className="h-4 w-4" />
-          </ToggleBtn>
+          {machineId === "sf260_5axis" ? (
+            <>
+              <ToggleBtn
+                active={showShell}
+                onClick={() => toggle("showShell")}
+                tooltip={showShell ? "隐藏整机外壳" : "显示整机外壳"}
+              >
+                {showShell ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+              </ToggleBtn>
+              {showShell && (
+                <ToggleBtn
+                  active={showEnclosure}
+                  onClick={() => toggle("showEnclosure")}
+                  tooltip={showEnclosure ? "打开防护门" : "关闭防护门"}
+                >
+                  <DoorOpen className="h-4 w-4" />
+                </ToggleBtn>
+              )}
+            </>
+          ) : (
+            <ToggleBtn
+              active={showEnclosure}
+              onClick={() => toggle("showEnclosure")}
+              tooltip="显示/隐藏护罩"
+            >
+              <Box className="h-4 w-4" />
+            </ToggleBtn>
+          )}
         </div>
         <div className="my-1 h-px w-full bg-white/10" />
         <div className="flex flex-col gap-1.5">

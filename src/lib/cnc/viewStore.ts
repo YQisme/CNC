@@ -3,11 +3,14 @@
 
 import { create } from "zustand";
 
-export type CameraPreset = "iso" | "top" | "bottom" | "front" | "right" | "reset";
+export type CameraPreset = "iso" | "top" | "bottom" | "front" | "right" | "reset" | "focus";
 
 export interface ViewState {
   showToolpath: boolean;
   showGrid: boolean;
+  /** 显示整机外壳（SF-260 外形柜体）；关闭则完全隐藏 */
+  showShell: boolean;
+  /** SF-260：防护门关/开；其它机型：简易护罩 */
   showEnclosure: boolean;
   showAxes: boolean;
   resetKey: number; // bump to remount canvas (resets camera)
@@ -15,12 +18,13 @@ export interface ViewState {
   cameraNonce: number; // bump to re-apply same preset
   resetView: () => void;
   setCameraPreset: (p: CameraPreset) => void;
-  toggle: (k: "showToolpath" | "showGrid" | "showEnclosure" | "showAxes") => void;
+  toggle: (k: "showToolpath" | "showGrid" | "showShell" | "showEnclosure" | "showAxes") => void;
 }
 
 export const useViewStore = create<ViewState>((set) => ({
   showToolpath: true,
   showGrid: true,
+  showShell: true,
   showEnclosure: true,
   showAxes: true,
   resetKey: 0,
