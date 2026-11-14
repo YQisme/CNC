@@ -769,6 +769,7 @@ export function buildSf260Exterior(
 
   const root = new THREE.Group();
   root.name = "SF260_Exterior";
+  root.userData.exportGroup = "shell";
   root.position.set(cx, 0, cz);
 
   // —— 裙边 + 调平脚 ——
@@ -1043,7 +1044,6 @@ export function buildSf260Exterior(
     const streak = new THREE.Mesh(new THREE.PlaneGeometry(hmiW * 0.28, 6), mats.streak);
     streak.position.set(8, hmiH * 0.17, hmiFaceZ + 1.2);
     hmi.add(streak);
-    addBox(hmi, [hmiW - 14, hmiH * 0.3, 2.2], [0, -hmiH * 0.12, hmiFaceZ - 0.4], mats.cavity, { name: "HMI_Keydeck" });
     const KEY_COLS = [-22, -11, 0, 11, 22];
     const KEY_ROWS = [4, -6, -16, -26];
     KEY_ROWS.forEach((y, row) => {

@@ -4,6 +4,16 @@ import * as THREE from "three";
 import { GLTFExporter } from "three/addons/exporters/GLTFExporter.js";
 import { OBJExporter } from "three/addons/exporters/OBJExporter.js";
 
+/** 导出分组名：Blender Outliner 中可直接选中整组 */
+export const EXPORT_SHELL_GROUP = "SF260_Shell";
+export const EXPORT_INTERNAL_GROUP = "SF260_Internal";
+
+const SHELL_ANCESTOR_NAMES = new Set([
+  EXPORT_SHELL_GROUP,
+  "SF260_Exterior",
+  "SF260_Shell",
+]);
+
 let exportRoot: THREE.Object3D | null = null;
 
 export function setMachineExportRoot(obj: THREE.Object3D | null) {
@@ -33,11 +43,32 @@ function simplifyMaterial(mat: THREE.Material): THREE.Material {
   return mat.clone();
 }
 
-/** 克隆可导出对象：剥离文字/精灵，简化玻璃材质 */
+/** 沿父链判断 mesh 属于外壳还是内部（默认内部） */
+function resolveExportBucket(obj: THREE.Object3D): "shell" | "internal" {
+  let p: THREE.Object3D | null = obj;
+  while (p) {
+    const tag = p.userData?.exportGroup as string | undefined;
+    if (tag === "shell") return "shell";
+    if (tag === "internal") return "internal";
+    if (SHELL_ANCESTOR_NAMES.has(p.name)) return "shell";
+    if (p.name === EXPORT_INTERNAL_GROUP || p.name === "SF260_Internal") {
+      return "internal";
+    }
+    p = p.parent;
+  }
+  return "internal";
+}
+
+/** 克隆可导出对象：剥离文字/精灵，简化玻璃材质；外壳/内部分两组 */
 export function prepareExportClone(source: THREE.Object3D): THREE.Group {
   const root = new THREE.Group();
   root.name = source.name || "CNC_Machine_Export";
   source.updateWorldMatrix(true, true);
+
+  const shell = new THREE.Group();
+  shell.name = EXPORT_SHELL_GROUP;
+  const internal = new THREE.Group();
+  internal.name = EXPORT_INTERNAL_GROUP;
 
   source.traverse((obj) => {
     if (!obj.visible) return;
@@ -63,8 +94,14 @@ export function prepareExportClone(source: THREE.Object3D): THREE.Group {
     out.name = mesh.name || "part";
     out.castShadow = true;
     out.receiveShadow = true;
-    root.add(out);
+
+    if (resolveExportBucket(mesh) === "shell") shell.add(out);
+    else internal.add(out);
   });
+
+  // 始终挂上两组，方便 Blender 里按固定名称操作（即使某一组为空）
+  root.add(shell);
+  root.add(internal);
 
   return root;
 }

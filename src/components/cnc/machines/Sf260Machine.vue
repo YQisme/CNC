@@ -163,14 +163,19 @@ onBeforeRender(({ delta }) => {
 
 <template>
   <TresGroup ref="rootRef" name="SF-260H_Machine">
-    <Sf260Exterior
-      v-if="view.showShell"
-      :cx="cx"
-      :cz="cz"
-      :base-top-y="baseTopY"
-    />
+    <!-- 外壳组：导出 GLB/OBJ 时归入 SF260_Shell，便于 Blender 整组编辑 -->
+    <TresGroup name="SF260_Shell" :user-data="{ exportGroup: 'shell' }">
+      <Sf260Exterior
+        v-if="view.showShell"
+        :cx="cx"
+        :cz="cz"
+        :base-top-y="baseTopY"
+      />
+    </TresGroup>
 
-    <TresGroup :position="[cx, 0, cz]" name="SF260_Structure">
+    <!-- 内部结构 / 摇篮 / 龙门：导出归入 SF260_Internal -->
+    <TresGroup name="SF260_Internal" :user-data="{ exportGroup: 'internal' }">
+      <TresGroup :position="[cx, 0, cz]" name="SF260_Structure">
       <ExplodePart :offset="[0, -35, 0]" :amount="internalAmt" name="Explode_Bed">
         <TresMesh
           :position="[0, baseTopY - 36, 0]"
@@ -357,5 +362,6 @@ onBeforeRender(({ delta }) => {
         </ExplodePart>
       </TresGroup>
     </ExplodePart>
+    </TresGroup>
   </TresGroup>
 </template>

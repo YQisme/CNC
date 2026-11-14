@@ -57,12 +57,21 @@ async function onExport(format: ExportFormat) {
   if (!canExport.value || exporting.value) return;
   exporting.value = true;
   exportMsg.value = null;
+  // 导出需要外壳 mesh 在场景中，否则 SF260_Shell 组为空
+  const restoreShell = !view.showShell;
+  if (restoreShell) view.showShell = true;
   try {
+    // 等一帧让 Sf260Exterior 挂载完成
+    if (restoreShell) {
+      await new Promise<void>((r) => requestAnimationFrame(() => r()));
+      await new Promise<void>((r) => requestAnimationFrame(() => r()));
+    }
     await downloadMachineModel(format, "SF-260H");
-    exportMsg.value = format === "glb" ? "已下载 GLB" : "已下载 OBJ";
+    exportMsg.value = format === "glb" ? "已下载 GLB（外壳+内部两组）" : "已下载 OBJ（外壳+内部两组）";
   } catch (e) {
     exportMsg.value = e instanceof Error ? e.message : "导出失败";
   } finally {
+    if (restoreShell) view.showShell = false;
     exporting.value = false;
     window.setTimeout(() => {
       exportMsg.value = null;
