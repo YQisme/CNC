@@ -22,7 +22,7 @@ onMounted(() => {
           <Cpu :size="18" color="#fff" />
         </div>
         <div class="brand-text">
-          <h1>CNC 模拟器 <span class="pro">PRO</span></h1>
+          <h1>CNC 模拟器 </h1>
           <span class="sub">三轴铣削 · G-code · 实时加工</span>
         </div>
       </div>
