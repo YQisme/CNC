@@ -16,7 +16,7 @@
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.1",
     "@tresjs/cientos": "^4.3.1",
-    "@tresjs/core": "^4.3.6",
+    "@tresjs/core": "^5.11.0",
     "element-plus": "^2.9.7",
     "lucide-vue-next": "^0.487.0",
     "pinia": "^3.0.1",
