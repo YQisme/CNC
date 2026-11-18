@@ -1,4 +1,4 @@
-// CNC Simulator Pro — G-code parser / interpreter
+// CNC Simulator  — G-code parser / interpreter
 // Tokenizes a G-code program and produces an ordered list of moves
 // with full modal state tracking (Fanuc-style milling).
 

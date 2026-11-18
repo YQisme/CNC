@@ -1,4 +1,4 @@
-# Agent notes — CNC Simulator Pro
+# Agent notes — CNC Simulator 
 
 This project is a **Vue 3 + Vite + Element Plus + TresJS + Pinia** SPA.
 

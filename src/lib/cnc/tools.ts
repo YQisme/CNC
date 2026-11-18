@@ -1,4 +1,4 @@
-// CNC Simulator Pro — International Standard Tool Library (ISO 13399 & ANSI)
+// CNC Simulator  — International Standard Tool Library (ISO 13399 & ANSI)
 // Covers 24 precision tools for Milling, Drilling, Reaming, Tapping, Surfacing & Lathe Turning
 
 export type ToolType =

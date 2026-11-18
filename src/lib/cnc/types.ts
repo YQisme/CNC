@@ -1,4 +1,4 @@
-// CNC Simulator Pro — shared types
+// CNC Simulator  — shared types
 
 export type MoveType =
   | "rapid" // G00

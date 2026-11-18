@@ -1,4 +1,4 @@
-// CNC Simulator Pro — CNC code reference data
+// CNC Simulator  — CNC code reference data
 // Used by the in-app reference panel (educational).
 
 export interface CodeEntry {

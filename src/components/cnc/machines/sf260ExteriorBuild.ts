@@ -3,6 +3,7 @@
  */
 import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
+import { SF260_SHELL, sf260InnerBounds } from "./sf260Layout";
 
 export type ExteriorHandles = {
   root: THREE.Group;
@@ -705,17 +706,19 @@ export function buildSf260Exterior(
     capBlue: cap("#2563eb"),
   };
 
-  const W = 416;
-  const D = 360;
-  const H = 318;
-  const R = 14;
-  const skin = 8;
-  const y0 = baseTopY - 4;
-  const yTop = y0 + H;
-  const halfW = W / 2;
-  const halfD = D / 2;
-  const zFace = halfD;
-  const seamY = y0 + 36;
+  const W = SF260_SHELL.W;
+  const D = SF260_SHELL.D;
+  const R = SF260_SHELL.R;
+  const skin = SF260_SHELL.skin;
+  // 地板下沉包住床身/摇篮；屋顶/门洞仍按原上段基准，避免门被拉长
+  const bounds = sf260InnerBounds(baseTopY);
+  const y0 = bounds.y0;
+  const yTop = bounds.yTop;
+  const yDeck = baseTopY - 4; // 原裙边上沿/门洞基准
+  const halfW = bounds.halfW;
+  const halfD = bounds.halfD;
+  const zFace = bounds.zFace;
+  const seamY = yDeck + 36;
   const yUpper = (seamY + yTop) / 2;
   const upperH = yTop - seamY;
   const doorW = 168;
@@ -723,7 +726,7 @@ export function buildSf260Exterior(
   const doorLeft = doorX - doorW / 2;
   const doorRight = doorX + doorW / 2;
   const gap = 1.2;
-  const doorBottom = y0 + 84;
+  const doorBottom = yDeck + 84;
   const doorTop = yTop - 32;
   const doorH = doorTop - doorBottom;
   const doorY = (doorTop + doorBottom) / 2;
@@ -738,11 +741,11 @@ export function buildSf260Exterior(
   const sideWinW = 88;
   const sideWinH = 170;
   const sideWinZ = 58;
-  const sideWinY = y0 + 178;
+  const sideWinY = yDeck + 178;
   const svcW = 56;
   const svcH = 116;
   const svcZ = -72;
-  const svcY = y0 + 166;
+  const svcY = yDeck + 166;
   const stripH = 15;
   const stripY = openB - stripH / 2 - 1.2;
   const leftX0 = -halfW + R;
@@ -757,7 +760,7 @@ export function buildSf260Exterior(
   const hmiY = (doorBottom + yTop + 28) / 2;
   const coilTopY = -hmiH / 2 + 10;
   const coilTopZ = hmiFaceZ - 3;
-  const coilBotY = y0 + 26 - hmiY;
+  const coilBotY = yDeck + 26 - hmiY;
   const coilBotZ = 2 - hmiD / 2 - 1;
 
   const cableA = trackGeo(
@@ -772,17 +775,19 @@ export function buildSf260Exterior(
   root.userData.exportGroup = "shell";
   root.position.set(cx, 0, cz);
 
-  // —— 裙边 + 调平脚 ——
+  // —— 裙边 + 调平脚（裙边从下沉地板一直包到接缝，罩住床身） ——
   {
     const part = explode([0, -48, 0], "Explode_Skirt");
     root.add(part);
-    addBox(part, [W - R * 2 + 4, 36, skin], [0, y0 + 18, zFace - skin / 2], mats.sheetAlt, { name: "Skirt_Front", shadow: true });
-    addBox(part, [W - R * 2 + 4, 36, skin], [0, y0 + 18, -zFace + skin / 2], mats.sheetAlt, { name: "Skirt_Rear" });
-    addBox(part, [skin, 36, D - R], [-halfW + skin / 2, y0 + 18, -R / 2], mats.sheetAlt, { name: "Skirt_Left", shadow: true });
-    addBox(part, [skin, 36, D - R], [halfW - skin / 2, y0 + 18, -R / 2], mats.sheetAlt, { name: "Skirt_Right" });
+    const skirtH = seamY - y0;
+    const skirtMid = y0 + skirtH / 2;
+    addBox(part, [W - R * 2 + 4, skirtH, skin], [0, skirtMid, zFace - skin / 2], mats.sheetAlt, { name: "Skirt_Front", shadow: true });
+    addBox(part, [W - R * 2 + 4, skirtH, skin], [0, skirtMid, -zFace + skin / 2], mats.sheetAlt, { name: "Skirt_Rear" });
+    addBox(part, [skin, skirtH, D - R], [-halfW + skin / 2, skirtMid, -R / 2], mats.sheetAlt, { name: "Skirt_Left", shadow: true });
+    addBox(part, [skin, skirtH, D - R], [halfW - skin / 2, skirtMid, -R / 2], mats.sheetAlt, { name: "Skirt_Right" });
     for (const side of [-1, 1] as const) {
-      const c1 = new THREE.Mesh(new THREE.CylinderGeometry(R, R, 36, 20), mats.sheetAlt);
-      c1.position.set(side * (halfW - R), y0 + 18, halfD - R);
+      const c1 = new THREE.Mesh(new THREE.CylinderGeometry(R, R, skirtH, 20), mats.sheetAlt);
+      c1.position.set(side * (halfW - R), skirtMid, halfD - R);
       part.add(c1);
       const c2 = new THREE.Mesh(new THREE.CylinderGeometry(R + 0.35, R + 0.35, 2, 20), mats.seamDark);
       c2.position.set(side * (halfW - R), seamY, halfD - R);
@@ -798,9 +803,13 @@ export function buildSf260Exterior(
     ];
     for (const [x, z] of footAt) addLevelFoot(part, [x, y0, z], mats.stainless, mats.rubber);
     const frontBolts: [number, number, number][] = [];
-    for (let x = -halfW + 46; x < openL - 16; x += 26) frontBolts.push([x, y0 + 16, zFace + 1.1]);
+    for (let x = -halfW + 46; x < openL - 16; x += 26) {
+      frontBolts.push([x, yDeck + 16, zFace + 1.1]);
+    }
     const sideBolts: [number, number, number][] = [];
-    for (let z = -halfD + 48; z <= halfD - 52; z += 46) sideBolts.push([-halfW - 1.05, y0 + 15, z]);
+    for (let z = -halfD + 48; z <= halfD - 52; z += 46) {
+      sideBolts.push([-halfW - 1.05, yDeck + 15, z]);
+    }
     addStuds(part, frontBolts, mats.bolt, "z");
     addStuds(part, sideBolts, mats.bolt, "x");
     addBox(part, [W - 8, 2.1, 2.2], [0, seamY, zFace + 0.4], mats.seam, { name: "Seam_Front" });

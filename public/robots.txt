@@ -1,4 +1,4 @@
-# CNC 模拟器 Pro — 允许所有爬虫
+# CNC 模拟器  — 允许所有爬虫
 User-agent: *
 Allow: /
 

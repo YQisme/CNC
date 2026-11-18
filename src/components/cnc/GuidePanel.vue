@@ -26,7 +26,7 @@ const KBDS: { keys: string; desc: string }[] = [
       <div class="rounded-lg border border-cyan-500/20 bg-gradient-to-br from-cyan-500/10 to-transparent p-4">
         <div class="mb-1 flex items-center gap-2">
           <Rocket class="h-4 w-4 text-cyan-400" />
-          <h2 class="text-sm font-bold text-slate-100">欢迎使用 CNC 模拟器 Pro</h2>
+          <h2 class="text-sm font-bold text-slate-100">欢迎使用 CNC 模拟器 </h2>
         </div>
         <p class="text-[11px] leading-relaxed text-slate-400">
           专业的浏览器端三轴 CNC 铣削模拟器。编写或加载 G-code，实时观看高保真三轴机床切削零件，并在过程中学习每一个

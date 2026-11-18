@@ -1,5 +1,5 @@
 {
-  "name": "CNC 模拟器 Pro — 3D CNC 铣削与 G-code 模拟器",
+  "name": "CNC 模拟器  — 3D CNC 铣削与 G-code 模拟器",
   "short_name": "CNC 模拟器",
   "description": "免费浏览器端三轴 CNC 铣削模拟器，支持实时 G-code 动画、3D 材料去除、DRO 控制栏，以及完整 G/M 代码参考。",
   "start_url": "/cnc/",

@@ -1,4 +1,4 @@
-// CNC Simulator Pro — International Material Catalog (ISO 513 Classification)
+// CNC Simulator  — International Material Catalog (ISO 513 Classification)
 // Covers Steels (P), Stainless Steels (M), Cast Iron (K), Non-Ferrous (N), Superalloys (S), Hardened (H) & Synthetics (O)
 
 export type IsoMaterialGroup =

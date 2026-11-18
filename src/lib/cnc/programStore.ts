@@ -1,4 +1,4 @@
-// CNC Simulator Pro — Program store (localStorage-backed)
+// CNC Simulator  — Program store (localStorage-backed)
 // All functions are CLIENT-ONLY and safe: they guard against SSR
 // (localStorage / window / document being undefined) and swallow errors.
 

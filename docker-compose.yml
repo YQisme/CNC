@@ -1,0 +1,40 @@
+# CNC 模拟器 — Docker Compose
+#
+# 生产（Nginx 静态站点）:
+#   docker compose up -d --build
+#   → http://localhost:8080
+#
+# 开发（Vite HMR，热更新）:
+#   docker compose --profile dev up
+#   → http://localhost:3000
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: cnc-simulator:latest
+    container_name: cnc-simulator
+    ports:
+      - "${CNC_PORT:-8080}:80"
+    restart: unless-stopped
+
+  # 开发模式：挂载源码，不构建生产镜像
+  # 用法: docker compose --profile dev up
+  dev:
+    profiles: ["dev"]
+    image: node:20-alpine
+    container_name: cnc-simulator-dev
+    working_dir: /app
+    volumes:
+      - .:/app
+      - cnc_node_modules:/app/node_modules
+    ports:
+      - "${CNC_DEV_PORT:-3000}:3000"
+    environment:
+      VITE_BASE_PATH: /
+    command: sh -c "yarn install && yarn dev --host 0.0.0.0 --port 3000"
+    restart: unless-stopped
+
+volumes:
+  cnc_node_modules:

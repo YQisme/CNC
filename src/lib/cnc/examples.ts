@@ -1,5 +1,5 @@
 /**
- * CNC Simulator Pro — Example G-code Programs
+ * CNC Simulator  — Example G-code Programs
  * ============================================
  *
  * A curated library of realistic, well-commented CNC G-code programs for a

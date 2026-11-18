@@ -15,6 +15,7 @@ import { setMachineExportRoot } from "@/lib/cnc/exportModel";
 import Sf260Exterior from "./Sf260Exterior.vue";
 import ExplodePart from "./ExplodePart.vue";
 import { explodeAmounts } from "./explodeAmounts";
+import { sf260InnerBounds } from "./sf260Layout";
 import Sf260Trunnion from "./Sf260Trunnion.vue";
 import ToolGeometry from "../ToolGeometry.vue";
 
@@ -59,6 +60,12 @@ const cz = computed(() =>
 const h = computed(() => workpiece.value.height);
 const bridgeY = computed(() => h.value + 95);
 const baseTopY = computed(() => -h.value - 22);
+const inner = computed(() => sf260InnerBounds(baseTopY.value));
+/** 床身/立柱落在内腔内，整体略偏后，避免顶到前门 */
+const wOut = computed(() => inner.value.bedW);
+const dOut = computed(() => inner.value.bedD);
+const structZ = computed(() => inner.value.structZ);
+const bedCenterY = computed(() => inner.value.y0 + 18);
 const internalAmt = computed(
   () => explodeAmounts(view.explodeAmount, view.showShell).internal,
 );
@@ -120,8 +127,6 @@ watch(
 );
 onBeforeUnmount(() => setMachineExportRoot(null));
 
-const wOut = 320;
-const dOut = 300;
 const magazineSlots = Array.from({ length: 12 }, (_, i) => {
   const a = (i / 12) * Math.PI * 2;
   return { i, x: Math.cos(a) * 22, z: Math.sin(a) * 22 };
@@ -176,89 +181,108 @@ onBeforeRender(({ delta }) => {
     <!-- 内部结构 / 摇篮 / 龙门：导出归入 SF260_Internal -->
     <TresGroup name="SF260_Internal" :user-data="{ exportGroup: 'internal' }">
       <TresGroup :position="[cx, 0, cz]" name="SF260_Structure">
-      <ExplodePart :offset="[0, -35, 0]" :amount="internalAmt" name="Explode_Bed">
-        <TresMesh
-          :position="[0, baseTopY - 36, 0]"
-          receive-shadow
-          cast-shadow
-          name="Bed"
-          :material="castMat"
-        >
-          <TresBoxGeometry :args="[wOut + 40, 28, dOut + 30]" />
-        </TresMesh>
-        <TresMesh
-          :position="[0, baseTopY - 16, 0]"
-          receive-shadow
-          cast-shadow
-          :material="darkMat"
-        >
-          <TresBoxGeometry :args="[wOut, 18, dOut]" />
-        </TresMesh>
-        <TresMesh :position="[-wOut / 2 + 30, baseTopY + 20, 0]" cast-shadow :material="castMat">
-          <TresBoxGeometry :args="[28, 70, dOut - 40]" />
-        </TresMesh>
-        <TresMesh :position="[wOut / 2 - 30, baseTopY + 20, 0]" cast-shadow :material="castMat">
-          <TresBoxGeometry :args="[28, 70, dOut - 40]" />
-        </TresMesh>
-      </ExplodePart>
-
-      <ExplodePart
-        v-for="side in [-1, 1]"
-        :key="side"
-        :offset="[side * 70, 10, -15]"
-        :amount="internalAmt"
-        :name="side < 0 ? 'Explode_Column_L' : 'Explode_Column_R'"
-      >
-        <TresGroup :position="[(wOut / 2 - 28) * side, 70, -20]">
-          <TresMesh cast-shadow receive-shadow :material="panelMat">
-            <TresBoxGeometry :args="[42, 230, 78]" />
-          </TresMesh>
-          <TresMesh :position="[side * -12, 0, 22]" :material="blueMat">
-            <TresBoxGeometry :args="[8, 210, 8]" />
-          </TresMesh>
-          <TresMesh :position="[side * -18, 10, 38]" cast-shadow :material="darkMat">
-            <TresBoxGeometry :args="[10, 160, 16]" />
-          </TresMesh>
-          <Edges :threshold="18" color="#94a3b8" />
-        </TresGroup>
-      </ExplodePart>
-
-      <ExplodePart :offset="[0, 55, -20]" :amount="internalAmt" name="Explode_Crossbeam">
-        <TresMesh :position="[0, 178, -20]" cast-shadow name="Crossbeam_Fixed" :material="panelMat">
-          <TresBoxGeometry :args="[wOut - 40, 32, 78]" />
-        </TresMesh>
-        <TresMesh :position="[0, 168, 12]" :material="railMat">
-          <TresBoxGeometry :args="[wOut - 80, 6, 6]" />
-        </TresMesh>
-        <TresMesh :position="[0, 162, 12]" :material="darkMat">
-          <TresBoxGeometry :args="[wOut - 80, 3, 10]" />
-        </TresMesh>
-      </ExplodePart>
-
-      <ExplodePart :offset="[-95, 15, -35]" :amount="internalAmt" name="Explode_Magazine">
-        <TresGroup :position="[-wOut / 2 - 6, 55, -40]" name="Tool_Magazine">
-          <TresMesh cast-shadow :material="darkMat">
-            <TresCylinderGeometry :args="[32, 32, 22, 28]" />
-          </TresMesh>
-          <TresMesh :position="[0, 14, 0]" :material="panelMat">
-            <TresCylinderGeometry :args="[30, 30, 4, 28]" />
-          </TresMesh>
-          <TresGroup
-            v-for="s in magazineSlots"
-            :key="s.i"
-            :position="[s.x, 12, s.z]"
+        <ExplodePart :offset="[0, -35, 0]" :amount="internalAmt" name="Explode_Bed">
+          <!-- 床身落在内腔中心（structZ），四周留墙距，不再顶出前门 -->
+          <TresMesh
+            :position="[0, bedCenterY, structZ]"
+            receive-shadow
+            cast-shadow
+            name="Bed"
+            :material="castMat"
           >
-            <TresMesh cast-shadow>
-              <TresCylinderGeometry :args="[3.2, 3.2, 18, 10]" />
-              <TresMeshStandardMaterial color="#cbd5e1" :roughness="0.3" :metalness="0.9" />
+            <TresBoxGeometry :args="[wOut, 28, dOut]" />
+          </TresMesh>
+          <TresMesh
+            :position="[0, bedCenterY + 20, structZ]"
+            receive-shadow
+            cast-shadow
+            :material="darkMat"
+          >
+            <TresBoxGeometry :args="[wOut - 36, 16, dOut - 36]" />
+          </TresMesh>
+          <TresMesh
+            :position="[-wOut / 2 + 26, bedCenterY + 48, structZ]"
+            cast-shadow
+            :material="castMat"
+          >
+            <TresBoxGeometry :args="[24, 56, dOut - 60]" />
+          </TresMesh>
+          <TresMesh
+            :position="[wOut / 2 - 26, bedCenterY + 48, structZ]"
+            cast-shadow
+            :material="castMat"
+          >
+            <TresBoxGeometry :args="[24, 56, dOut - 60]" />
+          </TresMesh>
+        </ExplodePart>
+
+        <ExplodePart
+          v-for="side in [-1, 1]"
+          :key="side"
+          :offset="[side * 70, 10, -15]"
+          :amount="internalAmt"
+          :name="side < 0 ? 'Explode_Column_L' : 'Explode_Column_R'"
+        >
+          <!-- 立柱靠后墙内侧，完全在壳内 -->
+          <TresGroup :position="[(wOut / 2 - 36) * side, 85, structZ - 36]">
+            <TresMesh cast-shadow receive-shadow :material="panelMat">
+              <TresBoxGeometry :args="[38, 200, 64]" />
             </TresMesh>
-            <TresMesh :position="[0, 10, 0]" :material="blueMat">
-              <TresCylinderGeometry :args="[4, 4, 3, 10]" />
+            <TresMesh :position="[side * -10, 0, 18]" :material="blueMat">
+              <TresBoxGeometry :args="[8, 180, 8]" />
             </TresMesh>
+            <TresMesh :position="[side * -14, 8, 30]" cast-shadow :material="darkMat">
+              <TresBoxGeometry :args="[10, 140, 14]" />
+            </TresMesh>
+            <Edges :threshold="18" color="#94a3b8" />
           </TresGroup>
-        </TresGroup>
-      </ExplodePart>
-    </TresGroup>
+        </ExplodePart>
+
+        <ExplodePart :offset="[0, 55, -20]" :amount="internalAmt" name="Explode_Crossbeam">
+          <TresMesh
+            :position="[0, 178, structZ - 36]"
+            cast-shadow
+            name="Crossbeam_Fixed"
+            :material="panelMat"
+          >
+            <TresBoxGeometry :args="[wOut - 56, 28, 64]" />
+          </TresMesh>
+          <TresMesh :position="[0, 168, structZ - 8]" :material="railMat">
+            <TresBoxGeometry :args="[wOut - 90, 6, 6]" />
+          </TresMesh>
+          <TresMesh :position="[0, 162, structZ - 8]" :material="darkMat">
+            <TresBoxGeometry :args="[wOut - 90, 3, 10]" />
+          </TresMesh>
+        </ExplodePart>
+
+        <ExplodePart :offset="[-95, 15, -35]" :amount="internalAmt" name="Explode_Magazine">
+          <!-- 刀库收进左侧内腔，不再贴穿侧墙 -->
+          <TresGroup
+            :position="[-wOut / 2 + 48, 70, structZ - 20]"
+            name="Tool_Magazine"
+          >
+            <TresMesh cast-shadow :material="darkMat">
+              <TresCylinderGeometry :args="[28, 28, 20, 28]" />
+            </TresMesh>
+            <TresMesh :position="[0, 12, 0]" :material="panelMat">
+              <TresCylinderGeometry :args="[26, 26, 4, 28]" />
+            </TresMesh>
+            <TresGroup
+              v-for="s in magazineSlots"
+              :key="s.i"
+              :position="[s.x * 0.85, 10, s.z * 0.85]"
+            >
+              <TresMesh cast-shadow>
+                <TresCylinderGeometry :args="[3, 3, 16, 10]" />
+                <TresMeshStandardMaterial color="#cbd5e1" :roughness="0.3" :metalness="0.9" />
+              </TresMesh>
+              <TresMesh :position="[0, 9, 0]" :material="blueMat">
+                <TresCylinderGeometry :args="[3.6, 3.6, 3, 10]" />
+              </TresMesh>
+            </TresGroup>
+          </TresGroup>
+        </ExplodePart>
+      </TresGroup>
 
     <ExplodePart :offset="[0, -25, 55]" :amount="internalAmt" name="Explode_Trunnion">
       <Sf260Trunnion
@@ -277,23 +301,24 @@ onBeforeRender(({ delta }) => {
         :position="[cx, bridgeY, cz]"
         name="Y_Saddle"
       >
+        <!-- 横梁宽度收进内腔，避免两端穿出侧墙 -->
         <TresMesh cast-shadow :material="panelMat">
-          <TresBoxGeometry :args="[260, 26, 42]" />
+          <TresBoxGeometry :args="[wOut - 48, 26, 40]" />
         </TresMesh>
         <TresMesh :position="[0, -16, 0]" :material="railMat">
-          <TresBoxGeometry :args="[240, 5, 5]" />
+          <TresBoxGeometry :args="[wOut - 72, 5, 5]" />
         </TresMesh>
         <TresMesh :position="[0, -16, 12]" :material="railMat">
-          <TresBoxGeometry :args="[240, 4, 4]" />
+          <TresBoxGeometry :args="[wOut - 72, 4, 4]" />
         </TresMesh>
-        <TresMesh :position="[-110, 4, 24]" cast-shadow :material="blueMat">
-          <TresBoxGeometry :args="[44, 20, 16]" />
+        <TresMesh :position="[-(wOut / 2 - 70), 4, 22]" cast-shadow :material="blueMat">
+          <TresBoxGeometry :args="[40, 18, 14]" />
         </TresMesh>
-        <TresMesh :position="[110, 4, 24]" cast-shadow :material="blueMat">
-          <TresBoxGeometry :args="[44, 20, 16]" />
+        <TresMesh :position="[wOut / 2 - 70, 4, 22]" cast-shadow :material="blueMat">
+          <TresBoxGeometry :args="[40, 18, 14]" />
         </TresMesh>
-        <TresMesh :position="[0, 14, -22]" cast-shadow :material="darkMat">
-          <TresBoxGeometry :args="[200, 8, 8]" />
+        <TresMesh :position="[0, 14, -20]" cast-shadow :material="darkMat">
+          <TresBoxGeometry :args="[wOut - 100, 8, 8]" />
         </TresMesh>
 
         <ExplodePart :offset="[0, 25, 35]" :amount="internalAmt" name="Explode_Carriage">

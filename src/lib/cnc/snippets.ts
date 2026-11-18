@@ -1,4 +1,4 @@
-// CNC Simulator Pro — Code snippets / templates
+// CNC Simulator  — Code snippets / templates
 // Ready-to-insert blocks of well-commented G-code (Fanuc-style, `;` comments).
 
 export interface Snippet {

@@ -1,4 +1,4 @@
-// CNC Simulator Pro — Machine Architectures & Specifications
+// CNC Simulator  — Machine Architectures & Specifications
 
 export type MachineType =
   | "vmc_3axis"

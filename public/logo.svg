@@ -16,5 +16,5 @@
   </g>
   <!-- Wordmark -->
   <text x="90" y="42" font-family="'Segoe UI', system-ui, sans-serif" font-size="26" font-weight="800" fill="#f8fafc">CNC Simulator</text>
-  <text x="90" y="68" font-family="'Segoe UI', system-ui, sans-serif" font-size="26" font-weight="800" fill="url(#accent)">Pro</text>
+  <text x="90" y="68" font-family="'Segoe UI', system-ui, sans-serif" font-size="26" font-weight="800" fill="url(#accent)"></text>
 </svg>

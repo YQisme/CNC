@@ -55,14 +55,14 @@ onMounted(() => {
     <div class="main">
       <div v-if="!ready" class="boot">
         <div class="spinner" />
-        <span>正在启动 CNC 模拟器 Pro…</span>
+        <span>正在启动 CNC 模拟器 …</span>
       </div>
       <CncLayout v-else />
     </div>
 
     <footer class="app-footer">
       <span>
-        CNC 模拟器 Pro — 拖动 3D 视图环视 ·
+        CNC 模拟器  — 拖动 3D 视图环视 ·
         <kbd>Space</kbd> 播放 ·
         <kbd>← →</kbd> 单步
       </span>

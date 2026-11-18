@@ -1,4 +1,4 @@
-// CNC Simulator Pro — workpiece carving engine
+// CNC Simulator  — workpiece carving engine
 // Builds a subdivided top-surface geometry and maintains a heightmap
 // that represents how deep the tool has cut at every (X,Y) grid vertex.
 

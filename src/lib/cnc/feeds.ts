@@ -1,4 +1,4 @@
-// CNC Simulator Pro — Feeds & Speeds calculation engine
+// CNC Simulator  — Feeds & Speeds calculation engine
 // Computes recommended cutting parameters (RPM, feed, MRR, power, DOC/WOC)
 // from a tool + material combination, with override factors and safety warnings.
 //
