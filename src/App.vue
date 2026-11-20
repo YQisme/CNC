@@ -44,7 +44,7 @@ onMounted(() => {
 
       <a
         class="src-link"
-        href="https://github.com/rudra496/cnc"
+        href="https://github.com/YQisme/cnc"
         target="_blank"
         rel="noreferrer"
       >
