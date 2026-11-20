@@ -1,8 +1,0 @@
-blank_issues_enabled: false
-contact_links:
-  - name: 💬 提问 / 发起讨论
-    url: https://github.com/rudra496/cnc/discussions
-    about: 有问题、想法，或想讨论 CNC 模拟器 ？来这里发起讨论！
-  - name: 🚀 在线演示
-    url: https://rudra496.github.io/cnc/
-    about: 直接在浏览器中体验 CNC 模拟器  — 无需安装。

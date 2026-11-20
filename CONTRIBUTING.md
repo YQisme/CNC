@@ -105,7 +105,6 @@ git checkout -b fix/my-improvement
 | `src/components/cnc/` | UI 与 3D — 场景、编辑器、控制栏、面板 |
 | `src/App.vue` | 应用壳层 |
 | `public/` | 静态资源、favicon、OG 图片 |
-| `.github/workflows/` | GitHub Pages 部署 |
 
 > ℹ️ 核心机制（解析器、切削引擎、状态、刀具、材料）**稳定且经过充分测试**。修改这些文件时，优先做增量改动，避免大规模重写。
 

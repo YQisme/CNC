@@ -5,7 +5,7 @@
 
 ---
 
-基于 **Vue 3**、**Vite**、**Element Plus**、**TresJS / Three.js**、**Pinia** 与 **TypeScript** 构建，以静态站点形式部署到 **GitHub Pages**。
+基于 **Vue 3**、**Vite**、**Element Plus**、**TresJS / Three.js**、**Pinia** 与 **TypeScript** 构建，可打包为静态站点部署。
 
 适合 CNC 入门学习、G-code 预览，以及对佳时特 **SF-260H** 五轴摇篮机型的可视化演示。
 
@@ -122,7 +122,7 @@ Windows 可双击根目录 `start.bat`：自动检测 Node / Yarn，首次安装
 
 路径别名：`@/` → `src/`。
 
-GitHub Pages 项目页构建时会根据 `GITHUB_REPOSITORY` 自动设置 `base`；也可手动指定：
+若部署在子路径下，可手动指定 `base`：
 
 ```bash
 VITE_BASE_PATH="/CNC/" yarn build
@@ -253,21 +253,4 @@ docker compose --profile dev up
 | 状态 | Pinia |
 | 包管理 | Yarn |
 | 容器 | Docker · Compose · Nginx |
-
----
-
-## 部署到 GitHub Pages
-
-推送到 `main` / `master` 后，[`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) 会：
-
-1. 用 Yarn 安装依赖并执行 `yarn build`
-2. 将 `dist/` 部署到 GitHub Pages
-
-请在仓库 **Settings → Pages → Source** 选择 **GitHub Actions**。
-
-另有 `build-check`、CodeQL 等 CI 工作流，用于构建校验与安全扫描。
-
-自托管或内网部署可改用上方 **Docker 部署**（Nginx 镜像），无需依赖 GitHub Pages。
-
-
 
